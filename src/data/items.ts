@@ -1,0 +1,67 @@
+import type { ItemDef } from '../types/game';
+
+export const items: ItemDef[] = [
+{ id: 'hoe', name: '锄头', kind: 'tool', sell: 0, desc: '翻松土地，也能清除杂草。' },
+{ id: 'can', name: '水壶', kind: 'tool', sell: 0, desc: '为作物浇水，对着水面使用可以灌满。' },
+{ id: 'axe', name: '斧头', kind: 'tool', sell: 0, desc: '砍伐树木、树桩与灌木。' },
+{ id: 'pickaxe', name: '镐子', kind: 'tool', sell: 0, desc: '敲碎石头和矿石，也能回收设施。' },
+{ id: 'sword', name: '旅人之剑', kind: 'tool', sell: 0, desc: '在矿洞里保护自己。' },
+{ id: 'rod', name: '鱼竿', kind: 'tool', sell: 0, desc: '面朝水面抛竿，咬钩时再按一次。' },
+
+{ id: 'seed_turnip', name: '珍珠芜菁种子', kind: 'seed', sell: 10, buy: 20, cropId: 'turnip', desc: '最容易上手的作物。' },
+{ id: 'seed_pepper', name: '赤焰椒种子', kind: 'seed', sell: 30, buy: 60, cropId: 'pepper', desc: '成熟后每 2 天可再采摘。' },
+{ id: 'seed_emberberry', name: '余烬莓种子', kind: 'seed', sell: 35, buy: 70, cropId: 'emberberry', desc: '成熟后每 3 天可再采摘。' },
+{ id: 'seed_sunpetal', name: '向阳葵种子', kind: 'seed', sell: 20, buy: 40, cropId: 'sunpetal', desc: '追着太阳生长的大花。' },
+{ id: 'seed_moonbloom', name: '月光花种子', kind: 'seed', sell: 70, buy: 140, cropId: 'moonbloom', desc: '只在雾谷开放的夜光花。' },
+{ id: 'seed_amber', name: '琥珀南瓜种子', kind: 'seed', sell: 45, buy: 90, cropId: 'amber', desc: '生长缓慢，价值不菲。' },
+{ id: 'seed_melon', name: '星纹瓜种子', kind: 'seed', sell: 75, buy: 150, cropId: 'melon', desc: '十天才能成熟的传奇瓜果。' },
+
+{ id: 'turnip', name: '珍珠芜菁', kind: 'produce', sell: 50, desc: '圆润清甜的根茎。' },
+{ id: 'pepper', name: '赤焰椒', kind: 'produce', sell: 45, desc: '咬一口像吞下一团火。' },
+{ id: 'emberberry', name: '余烬莓', kind: 'produce', sell: 38, desc: '像炭火一样温暖的浆果。' },
+{ id: 'sunpetal', name: '向阳葵', kind: 'produce', sell: 115, desc: '花盘里盛着整个夏天的阳光。' },
+{ id: 'moonbloom', name: '月光花', kind: 'produce', sell: 380, desc: '夜里会发出柔和的微光。' },
+{ id: 'amber', name: '琥珀南瓜', kind: 'produce', sell: 290, desc: '沉甸甸的金色南瓜。' },
+{ id: 'melon', name: '星纹瓜', kind: 'produce', sell: 420, desc: '瓜皮上的纹路像一片星空。' },
+
+{ id: 'egg', name: '鸡蛋', kind: 'animal', sell: 50, desc: '还带着一点温度。' },
+{ id: 'milk', name: '牛奶', kind: 'animal', sell: 125, desc: '新鲜醇厚的牛奶。' },
+
+{ id: 'jam_turnip', name: '芜菁泡菜', kind: 'artisan', sell: 140, desc: '腌制罐的手艺。', color: '#e9d9b8' },
+{ id: 'jam_pepper', name: '火焰辣酱', kind: 'artisan', sell: 125, desc: '镇上的铁匠最爱。', color: '#e8401f' },
+{ id: 'jam_emberberry', name: '余烬莓果酱', kind: 'artisan', sell: 115, desc: '涂在面包上刚刚好。', color: '#d82d4a' },
+{ id: 'jam_sunpetal', name: '葵花籽油', kind: 'artisan', sell: 300, desc: '金黄透亮。', color: '#f5c22e' },
+{ id: 'jam_moonbloom', name: '月光蜜', kind: 'artisan', sell: 860, desc: '在黑暗中微微发光的蜜。', color: '#9ff0ff' },
+{ id: 'jam_amber', name: '南瓜果泥', kind: 'artisan', sell: 680, desc: '绵密香甜。', color: '#f08a20' },
+{ id: 'jam_melon', name: '星纹瓜冻', kind: 'artisan', sell: 950, desc: '晶莹剔透的奢侈甜点。', color: '#8fe06a' },
+{ id: 'mayo', name: '蛋黄酱', kind: 'artisan', sell: 170, desc: '用鸡蛋做成的顺滑酱料。', color: '#f7eaa0' },
+{ id: 'cheese', name: '奶酪', kind: 'artisan', sell: 320, desc: '慢慢熟成的风味。', color: '#ffd35a' },
+
+{ id: 'wood', name: '木材', kind: 'resource', sell: 3, desc: '建造与制作的基础材料。' },
+{ id: 'stone', name: '石料', kind: 'resource', sell: 3, desc: '坚固的石块。' },
+{ id: 'quartz', name: '石英', kind: 'resource', sell: 60, desc: '透明的结晶。' },
+{ id: 'copper_ore', name: '铜矿石', kind: 'resource', sell: 15, desc: '在铁匠铺可以熔炼成铜锭。' },
+{ id: 'iron_ore', name: '铁矿石', kind: 'resource', sell: 30, desc: '矿洞第 4 层以下出现。' },
+{ id: 'gold_ore', name: '金矿石', kind: 'resource', sell: 60, desc: '矿洞第 8 层以下出现。' },
+{ id: 'amethyst', name: '紫晶', kind: 'resource', sell: 150, desc: '阿青最喜欢的宝石。' },
+{ id: 'copper_bar', name: '铜锭', kind: 'resource', sell: 90, desc: '工具升级材料。' },
+{ id: 'iron_bar', name: '铁锭', kind: 'resource', sell: 180, desc: '工具升级材料。' },
+{ id: 'gold_bar', name: '金锭', kind: 'resource', sell: 400, desc: '最高级的升级材料。' },
+{ id: 'slime', name: '史莱姆凝胶', kind: 'resource', sell: 15, desc: '黏糊糊的。' },
+{ id: 'bat_wing', name: '蝠翼', kind: 'resource', sell: 25, desc: '薄如蝉翼。' },
+
+{ id: 'fish_minnow', name: '银鳞鲦', kind: 'fish', sell: 30, desc: '溪水里最常见的小鱼。', color: '#a9c4d6' },
+{ id: 'fish_perch', name: '河鲈', kind: 'fish', sell: 65, desc: '带着青绿色条纹。', color: '#7fa45a' },
+{ id: 'fish_koi', name: '晚霞锦鲤', kind: 'fish', sell: 150, desc: '雨天更活跃。', color: '#ff7a3d' },
+{ id: 'fish_lantern', name: '灯笼鱼', kind: 'fish', sell: 240, desc: '只在夜里出没。', color: '#5a6fe4' },
+{ id: 'fish_carp', name: '镇湖金鲤', kind: 'fish', sell: 180, desc: '只在小镇的湖里能钓到。', color: '#ffc23a' },
+
+{ id: 'sprinkler', name: '洒水器', kind: 'placeable', sell: 80, desc: '每天清晨浇灌周围 8 格。' },
+{ id: 'lamp', name: '庭院灯', kind: 'placeable', sell: 30, buy: 150, desc: '入夜后点亮一圈暖光。' },
+{ id: 'jar', name: '腌制罐', kind: 'placeable', sell: 100, desc: '放入作物、鸡蛋或牛奶，第二天变成高价加工品。' },
+
+{ id: 'ration', name: '野餐便当', kind: 'food', sell: 25, buy: 60, energy: 35, hp: 15, desc: '体力 +35 · 生命 +15' },
+{ id: 'stew', name: '芜菁炖汤', kind: 'food', sell: 120, energy: 55, hp: 25, desc: '体力 +55 · 生命 +25' },
+{ id: 'tart', name: '余烬莓挞', kind: 'food', sell: 160, energy: 70, hp: 30, desc: '体力 +70 · 生命 +30' },
+{ id: 'fish_soup', name: '渔夫鱼汤', kind: 'food', sell: 80, buy: 160, energy: 50, hp: 60, desc: '体力 +50 · 生命 +60' },
+{ id: 'coffee', name: '浓咖啡', kind: 'food', sell: 50, buy: 120, energy: 25, buff: 'speed', desc: '体力 +25 · 今天移动速度提升' }];

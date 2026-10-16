@@ -1,0 +1,46 @@
+/* @import url() FONT IMPORTS MUST ALWAYS BE AT THE VERY TOP OF THIS FILE, ABOVE THE TAILWIND IMPORTS — DO NOT DELETE THIS COMMENT */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+
+/* CRITICAL: THE FOLLOWING TAILWIND IMPORTS MUST NEVER BE DELETED OR REORDERED — DO NOT DELETE THIS COMMENT */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* END TAILWIND IMPORTS — ALL OTHER CSS MUST GO BELOW THIS LINE */
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #0f1420;
+}
+.glass {
+  background: rgba(13, 18, 30, 0.78);
+  backdrop-filter: blur(14px) saturate(1.3);
+  -webkit-backdrop-filter: blur(14px) saturate(1.3);
+  border: 1px solid rgba(255, 240, 210, 0.09);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px -28px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.pixelated {
+  image-rendering: pixelated;
+}
+.keycap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.35rem;
+  border-radius: 6px;
+  background: #fbf3e4;
+  color: #0f1420;
+  font-size: 11px;
+  font-weight: 900;
+  box-shadow: inset 0 -2px 0 rgba(15, 20, 32, 0.3);
+}
+.title-shadow {
+  text-shadow: 0 4px 30px rgba(0, 0, 0, 0.55), 0 1px 0 rgba(0, 0, 0, 0.4);
+}

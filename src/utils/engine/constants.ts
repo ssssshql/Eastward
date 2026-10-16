@@ -1,0 +1,28 @@
+import type { MapId, Season } from '../../types/game';
+
+export const TILE = 16;
+export const MAP_W = 56;
+export const MAP_H = 44;
+export const TOWN_W = 48;
+export const TOWN_H = 36;
+export const MINE_W = 34;
+export const MINE_H = 26;
+export const DAY_START = 6 * 60;
+export const DAY_END = 26 * 60;
+export const TITLE_TIME = 17.6 * 60;
+export const MIN_PER_SEC = 2.5;
+export const DAYS_PER_SEASON = 7;
+export const INV_SIZE = 36;
+export const HOTBAR_SIZE = 12;
+export const MAX_STACK = 99;
+export const REACH = 28;
+export const PLAYER_SPEED = 78;
+export const HEART = 100;
+export const MAX_HEARTS = 5;
+export const SEASONS: Season[] = ['spring', 'summer', 'autumn', 'winter'];
+export const FARM_RECT = { x: 6, y: 13, w: 26, h: 20 };
+export const PEN_RECT = { x: 12, y: 7, w: 15, h: 5 };
+export const ANIMAL_CAP = { chicken: 4, cow: 2 };
+export const SEASON_NAMES: Record<Season, string> = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
+export const MAP_NAMES: Record<MapId, string> = { farm: '雾谷农场', town: '灯湖镇', mine: '幽光矿洞' };
+export const MAP_SUBS: Record<MapId, string> = { farm: '你的家', town: '居民 · 商店 · 委托', mine: '越深处，越危险' };
