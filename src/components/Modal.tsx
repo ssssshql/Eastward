@@ -36,11 +36,7 @@ export function Modal({ title, subtitle, onClose, children, className = '', asid
           <div className="flex shrink-0 items-center gap-3">
             {aside}
             {onClose &&
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="关闭"
-              className="btn-wood flex h-9 w-9 items-center justify-center rounded-md bg-berry text-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-amber">
+            <button type="button" onClick={onClose} aria-label="关闭" className="btn-wood flex h-9 w-9 items-center justify-center rounded-md bg-berry text-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-amber">
                 <XIcon className="h-5 w-5" strokeWidth={3} />
               </button>
             }

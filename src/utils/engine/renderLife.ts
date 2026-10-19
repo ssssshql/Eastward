@@ -25,12 +25,12 @@ export function collectLife(ctx: CanvasRenderingContext2D, g: FarmGame, bank: Sp
     const y = Math.round(w.y);
     out.contact.push([x, y - 1, 6, 2.2]);
     out.mirrors.push({ img, bx: x, by: y, ox: -10, oy: -26 });
-    out.items.push({ y, draw: () => ctx.drawImage(img, x - 10, y - 26 + (Math.sin(t * 1.2) > 0.9 ? 1 : 0)) });
+    out.items.push({ y, draw: () => ctx.drawImage(img, x - 10, y - 26) });
     const fx = x + 16;
     const fy = y - 1;
-    const fl = 0.85 + Math.sin(t * 12) * 0.08 + Math.sin(t * 7.1) * 0.06;
+    const fl = 0.9 + Math.sin(t * 8) * 0.05;
     out.lights.push({ x: fx, y: fy - 6, r: 72, a: 0.55 + fl * 0.35, kind: 'warm', base: fy });
-    if (Math.random() < 0.2) g.particles.spawn('spark', fx + (Math.random() - 0.5) * 5, fy - 4, { z: 0, vz: 16 + Math.random() * 12, life: 0.7, color: Math.random() < 0.5 ? '#ffb040' : '#fff0a0' });
+    if (Math.random() < 0.18) g.particles.spawn('spark', fx + (Math.random() - 0.5) * 5, fy - 4, { z: 0, vz: 16 + Math.random() * 12, life: 0.7, color: Math.random() < 0.5 ? '#ffb040' : '#fff0a0' });
     if (Math.random() < 0.05) g.particles.spawn('smoke', fx, fy - 10, { life: 2.6, size: 1.4, vx: 2 + Math.random() * 2, color: '#b8b0b8' });
     out.contact.push([fx, fy, 7, 2]);
     out.items.push({
@@ -43,7 +43,7 @@ export function collectLife(ctx: CanvasRenderingContext2D, g: FarmGame, bank: Sp
         ctx.fillRect(fx + 1, fy - 3, 4, 1);
         ctx.fillStyle = '#7a7480';
         for (const sx of [-7, -4, 3, 6]) ctx.fillRect(fx + sx, fy - 1, 2, 2);
-        const fh = 5 + Math.round(Math.sin(t * 14) * 1.5 + 1.5);
+        const fh = 5 + Math.floor(t * 8) % 3;
         ctx.fillStyle = '#ff7a2a';
         ctx.fillRect(fx - 3, fy - 3 - fh, 6, fh);
         ctx.fillStyle = '#ffcf5a';
@@ -68,12 +68,12 @@ export function collectLife(ctx: CanvasRenderingContext2D, g: FarmGame, bank: Sp
     const y = Math.round(cr.y);
     if (cr.kind === 'duck') {
       const img = S.duck[cr.dir === 1 ? 'right' : 'left'][Math.floor(cr.t * 2) % 2];
-      out.items.push({ y, draw: () => ctx.drawImage(img, x - 6, y - 7 + (Math.sin(cr.t * 3) > 0 ? 1 : 0)) });
+      out.items.push({ y, draw: () => ctx.drawImage(img, x - 6, y - 7) });
       continue;
     }
     if (cr.kind === 'butterfly') {
       const z = Math.round(cr.z);
-      const open = Math.sin(cr.t * 22) > 0;
+      const open = Math.floor(cr.t * 8) % 2 === 0;
       out.items.push({
         y: y + 2,
         draw: () => {
@@ -91,7 +91,7 @@ export function collectLife(ctx: CanvasRenderingContext2D, g: FarmGame, bank: Sp
       continue;
     }
     const z = Math.round(cr.z);
-    const flap = cr.flee && Math.sin(cr.t * 30) > 0;
+    const flap = cr.flee && Math.floor(cr.t * 12) % 2 === 0;
     const hop = !cr.flee && cr.t < 0.15 ? 1 : 0;
     out.items.push({
       y: y + (cr.flee ? 200 : 0),
@@ -141,9 +141,9 @@ export function drawLifeOverlay(ctx: CanvasRenderingContext2D, g: FarmGame): voi
     const h = headOf(g, e.who);
     if (!h) continue;
     const age = 2.2 - e.t;
-    const pop = age < 0.12 ? 1 : 0;
+    const pop = age < 0.1 ? 1 : 0;
     const x = Math.round(h[0]) - 5;
-    const y = Math.round(h[1]) - 9 + pop + Math.round(Math.sin(t * 4) * 0.6);
+    const y = Math.round(h[1]) - 9 + pop;
     ctx.globalAlpha = Math.min(1, e.t * 3);
     ctx.fillStyle = '#140b07';
     ctx.fillRect(x - 1, y, 11, 9);
@@ -173,7 +173,7 @@ export function drawLifeOverlay(ctx: CanvasRenderingContext2D, g: FarmGame): voi
   if (goal && g.path) {
     const cx = goal.x * TILE + 8;
     const cy = goal.y * TILE + 10;
-    const r = 4 + Math.round((Math.sin(t * 6) + 1) * 1.5);
+    const r = 4 + Math.floor(t * 4) % 2 * 2;
     ctx.fillStyle = goal.interact ? 'rgba(255,181,71,0.9)' : 'rgba(253,241,216,0.85)';
     ctx.fillRect(cx - r, cy, 2, 1);
     ctx.fillRect(cx + r - 1, cy, 2, 1);

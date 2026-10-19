@@ -249,6 +249,60 @@ export function buildIcon(id: string): HTMLCanvasElement {
       p.set(6, 3, WHITE, 0.6);
       p.set(8, 2, WHITE, 0.5);
       break;
+    case 'forage_herb':{
+        const g = ramp('#5fae45', 5, 0.6, 0.45);
+        p.line(6, 13, 4, 2, g[3]);
+        p.line(8, 13, 8, 1, g[2]);
+        p.line(10, 13, 12, 3, g[3]);
+        p.ball(8, 12.5, 3.6, 2.4, ramp('#f2efe2', 4, 0.4, 0.2), 0.2);
+        p.line(6, 15, 8, 14, [220, 210, 190]);
+        break;
+      }
+    case 'forage_mushroom':{
+        p.box(6, 9, 4, 6, ramp('#efe4cc', 4, 0.45, 0.25));
+        p.ball(8, 7.5, 6, 4, ramp('#a8542e', 5, 0.6, 0.45), 0.2);
+        p.set(6, 6, [250, 236, 210]);
+        p.set(10, 5, [250, 236, 210]);
+        p.set(9, 8, [250, 236, 210]);
+        break;
+      }
+    case 'forage_berry':{
+        const b = ramp('#c8304a', 4, 0.55, 0.45);
+        p.ball(5.5, 10, 2.4, 2.4, b, 0.2);
+        p.ball(10.5, 10, 2.4, 2.4, b, 0.2);
+        p.ball(8, 12.5, 2.4, 2.4, b, 0.2);
+        p.ball(8, 7.8, 2.4, 2.4, b, 0.2);
+        p.line(8, 5, 11, 2, [70, 140, 60]);
+        p.ball(11, 3, 2, 1.2, ramp('#4fae45', 4), 0.2);
+        break;
+      }
+    case 'forage_holly':{
+        const l = ramp('#2f7a42', 4, 0.6, 0.45);
+        p.ball(5, 7, 4, 2.2, l, 0.1);
+        p.ball(11, 7, 4, 2.2, l, 0.1);
+        const r = ramp('#e2363a', 4, 0.5, 0.45);
+        p.ball(6.5, 11, 2, 2, r, 0.3);
+        p.ball(9.5, 11, 2, 2, r, 0.3);
+        p.ball(8, 9, 2, 2, r, 0.3);
+        break;
+      }
+    case 'forage_shell':{
+        const s = ramp('#f2c8b0', 5, 0.5, 0.35);
+        p.ball(8, 9, 5.5, 4.5, s, 0.1);
+        for (let k = 0; k < 4; k++) p.line(8, 13, 4 + k * 2.6, 5, s[1]);
+        p.rect(6, 13, 4, 1, s[1]);
+        break;
+      }
+    case 'forage_coral':{
+        const c = ramp('#ff6a6a', 4, 0.5, 0.45);
+        p.line(8, 14, 8, 6, c[2]);
+        p.line(8, 10, 4, 5, c[2]);
+        p.line(8, 9, 12, 3, c[2]);
+        p.line(4, 5, 3, 2, c[3]);
+        p.line(12, 3, 13, 6, c[3]);
+        p.line(8, 6, 7, 2, c[3]);
+        break;
+      }
     default:
       if (def.kind === 'artisan') {
         const glass = ramp('#e8f0f4', 4, 0.4, 0.2);
@@ -269,8 +323,7 @@ export function buildIcon(id: string): HTMLCanvasElement {
         p.set(9, 10, L[2]);
         p.set(8, 11, L[1]);
       } else if (def.kind === 'produce') {
-        const c = getCrop(id);
-        drawProduce(p, c);
+        drawProduce(p, getCrop(id));
       } else if (def.kind === 'fish') {
         drawFish(p, def.color ?? '#a9c4d6');
       } else {

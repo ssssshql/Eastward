@@ -60,7 +60,6 @@ function clampI(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-/** Small grass-blade clusters: a lit tip, a mid stroke and a shadow pixel beneath. */
 function bladeLi(x: number, y: number, seed: number): number {
   for (let k = 0; k < 2; k++) {
     const cx = x >> 2;
@@ -114,6 +113,7 @@ export function buildGround(world: World, season: Season): HTMLCanvasElement {
   const groundAt = (tx: number, ty: number) => world.ground[clampI(ty, 0, world.h - 1) * world.w + clampI(tx, 0, world.w - 1)];
 
   const winter = season === 'winter';
+  const beach = world.id === 'beach';
   const grass = ramp(GRASS[season], 6, 0.6, 0.45);
   const alt = ramp(GRASS_ALT[season], 6, 0.58, 0.45);
   const deep = ramp(GRASS_DEEP[season], 6, 0.6, 0.42);
@@ -125,7 +125,6 @@ export function buildGround(world: World, season: Season): HTMLCanvasElement {
   const seed = world.seed % 9973;
   const p = new Px(W, H);
 
-  // Pass 1: water field per pixel so the earthen banks can look upward.
   const wvA = new Float32Array(W * H);
   const nzA = new Float32Array(W * H);
   for (let y = 0; y < H; y++) {
@@ -139,7 +138,6 @@ export function buildGround(world: World, season: Season): HTMLCanvasElement {
   }
   const isWaterPx = (x: number, y: number) => y < 0 ? true : wvA[y * W + x] > 0.5;
 
-  // Ambient occlusion strip below every structure.
   const ao = new Float32Array(W * H);
   for (const s of world.structures) {
     const bottom = (s.y + s.h) * TILE;
@@ -181,7 +179,6 @@ export function buildGround(world: World, season: Season): HTMLCanvasElement {
           p.set(x, y, DEEP_SHADOW, 0.55 - ly * 0.08);
           continue;
         }
-        // Earthen bank on the far (north) shore: Eastward-style vertical face.
         let k = 0;
         for (let d = 1; d <= BANK_DEPTH + 4; d++) {
           if (!isWaterPx(x, y - d)) {
@@ -190,6 +187,13 @@ export function buildGround(world: World, season: Season): HTMLCanvasElement {
           }
         }
         const landAbove = k > 0 ? groundAt(tx, Math.floor((y - k) / TILE)) : 'water';
+        if (beach && k > 0 && landAbove === 'sand') {
+          // Gentle sloping beach: a foam line, then shallow sand showing through the sea.
+          if (k === 1) p.set(x, y, FOAM, 0.9);else
+          if (k === 2) p.set(x, y, FOAM, 0.45);else
+          if (k <= 6) p.set(x, y, sand[3], 0.55 - (k - 3) * 0.12);
+          continue;
+        }
         if (k > 0 && k <= BANK_DEPTH && landAbove !== 'dock') {
           let li: number;
           let c: RGB;
@@ -247,7 +251,6 @@ export function buildGround(world: World, season: Season): HTMLCanvasElement {
       } else if (pv > 0.5) {
         let li = 2.6 + (fbm(x * 0.22, y * 0.22, seed + 7, 2) - 0.5) * 3 + (hash2(x, y, seed + 1) - 0.5) * 0.9;
         if (pv < 0.57) li -= 0.9;
-        // Pebbles with a lit top and a cast shadow.
         const pcx = x >> 2;
         const pcy = y >> 2;
         if (hash2(pcx, pcy, seed + 50) < 0.13) {

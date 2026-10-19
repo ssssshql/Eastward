@@ -36,10 +36,6 @@ interface Blob {
   z: number;
 }
 
-/**
- * Paints clustered foliage. Each blob is a leaf clump with a crisp lit rim on its upper-left,
- * a dark underside, and posterised dapples — the chunky, readable canopy style of Eastward.
- */
 function paintBlobs(p: Px, blobs: Blob[], pal: RGB[], seed: number): void {
   let minY = Infinity;
   let maxY = -Infinity;
@@ -78,9 +74,7 @@ function paintBlobs(p: Px, blobs: Blob[], pal: RGB[], seed: number): void {
       li += (hash2(x >> 1, y >> 1, seed) - 0.5) * 0.35 + (valueNoise(x * 0.5, y * 0.5, seed) - 0.5) * 0.55;
       let idx = Math.floor((li + 0.9) / 2 * pal.length);
       idx = idx < 0 ? 0 : idx > top ? top : idx;
-      // Lit rim on each clump's upper-left edge.
       if (d2b > 0.62 && -nx * 0.6 - ny * 0.8 > 0.42) idx = Math.min(top, idx + 2);
-      // Deep occluded underside where clumps overlap.
       if (d2b > 0.7 && ny > 0.45) idx = Math.max(0, idx - 1);
       p.set(x, y, pal[idx]);
     }
@@ -116,7 +110,6 @@ function paintTrunk(p: Px, topY: number, seed: number): void {
       p.set(x, y, pick(bark, li));
     }
   }
-  // Root flare moss on the shaded side.
   for (let x = 20; x <= 29; x++) if (hash2(x, 7, seed) < 0.45) p.set(x, 60 - Math.floor(hash2(x, 8, seed) * 3), MOSS[2]);
 }
 

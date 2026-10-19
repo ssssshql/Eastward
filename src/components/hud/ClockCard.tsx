@@ -26,7 +26,7 @@ export function ClockCard({ season, dayOfSeason, time, weather, tomorrow, money,
   const late = time >= 24 * 60;
   if (compact) {
     return (
-      <div className="glass flex items-center gap-3 rounded-xl px-3 py-2">
+      <div className="glass flex items-center gap-3 px-3 py-2">
         <div className="text-right">
           <div className="flex items-center justify-end gap-1 text-[10px] text-cream-dim">
             <Icon className="h-3 w-3 text-amber" aria-hidden="true" />
@@ -50,9 +50,9 @@ export function ClockCard({ season, dayOfSeason, time, weather, tomorrow, money,
         </span>
       </div>
       <div className={`mt-1 font-pixel text-[40px] font-bold leading-none tabular-nums ${late ? 'text-berry' : 'text-cream'}`}>{formatTime(time)}</div>
-      <div className="relative mt-3 h-[3px] rounded-full bg-cream/15" role="progressbar" aria-label="今日进度" aria-valuenow={Math.round(progress * 100)}>
-        <div className="absolute inset-y-0 left-0 rounded-full bg-amber/70" style={{ width: `${progress * 100}%` }} />
-        <div className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-amber ring-2 ring-ink" style={{ left: `${progress * 100}%` }} />
+      <div className="relative mt-3 h-[3px] bg-cream/15" role="progressbar" aria-label="今日进度" aria-valuenow={Math.round(progress * 100)}>
+        <div className="absolute inset-y-0 left-0 bg-amber/70" style={{ width: `${progress * 100}%` }} />
+        <div className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 bg-amber ring-2 ring-ink" style={{ left: `${progress * 100}%` }} />
       </div>
       <div className="mt-1.5 flex justify-between text-[10px] text-cream-dim/80">
         <span>06:00</span>

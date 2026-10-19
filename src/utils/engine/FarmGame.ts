@@ -1,24 +1,26 @@
-import type { Animal, Banner, DaySummary, Dialog, Dir, MapId, Mode, Monster, NpcState, PanelMode, Pickup, Player, Prompt, Request, Season, Stack, Stats, Structure, Toast, UiSnapshot, UpgradeId, Weather, World } from '../../types/game';
-import { DAY_END, DAY_START, DAYS_PER_SEASON, HOTBAR_SIZE, INV_SIZE, MAP_NAMES, MAP_SUBS, MAX_STACK, MIN_PER_SEC, PLAYER_SPEED, SEASON_NAMES, SEASONS, TILE, TITLE_TIME } from './constants';
-import { advanceNight, inBounds, interiorKey, isDoorTile, isSolid, warpAt } from './world';
+import type { Animal, Banner, DaySummary, Dialog, Dir, FishRecord, FishResult, MapId, MinimapView, Mode, Monster, NpcState, PanelMode, Pickup, Player, Prompt, Request, Season, Stack, Stats, Structure, Toast, UiSnapshot, UpgradeId, Weather, World } from '../../types/game';
+import { DAY_END, DAY_START, DAYS_PER_SEASON, HOTBAR_SIZE, INV_SIZE, MAP_NAMES, MAP_SUBS, MAX_STACK, MIN_PER_SEC, PLAYER_SPEED, REACH, SEASON_NAMES, SEASONS, TILE, TITLE_TIME } from './constants';
+import { advanceNight, inBounds, interiorKey, isDoorTile, isSolid, rollFishSpots, spawnForage, warpAt } from './world';
 import { createFarm } from './maps/farmMap';
 import { createTown } from './maps/townMap';
+import { createForest } from './maps/forestMap';
+import { createBeach } from './maps/beachMap';
 import { createMine, MINE_SPAWN } from './maps/mineMap';
 import { createInterior } from './maps/interiorMap';
 import { ParticleSystem } from './particles';
-import { actWithSelected, computePrompt, computeTarget, interact, stepAction, updateFishing } from './farmActions';
-import { createNpcStates, resetNpcsForDay, spawnAnimal, updateAnimals, updateMonsters, updateNpcs } from './entities';
+import { actWithSelected, computePrompt, computeTarget, interact, isMature, stepAction } from './farmActions';
+import { resolveCatch, updateCasting, updateFishing } from './fishing';
+import { animalNear, createNpcStates, npcNear, resetNpcsForDay, spawnAnimal, updateAnimals, updateMonsters, updateNpcs } from './entities';
 import { rollRequests } from './social';
 import { eatSlot } from './economy';
 import { hasSave, readSave, worldFromSave, worldToSave, writeSave } from './save';
 import { updateAmbient, AmbientTimers } from './ambient';
 import { createLife, LifeState, onNewDay, rollVisitors, updateLife, visitorNear } from './life';
 import { findPath, neighbourGoals } from './pathfind';
-import { animalNear, npcNear } from './entities';
-import { isMature } from './farmActions';
-import { REACH } from './constants';
+import { renderMinimap } from './minimap';
 import { getItem } from '../items';
 import { goals } from '../../data/goals';
+import { forageTable } from '../../data/forage';
 import { LEAF_PARTICLES } from '../sprites/nature';
 
 export interface InputState {
@@ -39,6 +41,13 @@ export interface FishingState {
   t: number;
   bx: number;
   by: number;
+  power: number;
+  spot: boolean;
+}
+
+export interface CastingState {
+  power: number;
+  dir: number;
 }
 
 export interface Target {
@@ -57,7 +66,7 @@ interface PendingWarp {
 }
 
 export function emptyStats(): Stats {
-  return { tilled: 0, watered: 0, planted: 0, harvested: 0, fish: 0, earned: 0, crafted: 0, wood: 0, stone: 0, moonbloom: 0, shipped: 0, monsters: 0, deepest: 0, gifts: 0, requests: 0, processed: 0, ore: 0 };
+  return { tilled: 0, watered: 0, planted: 0, harvested: 0, fish: 0, earned: 0, crafted: 0, wood: 0, stone: 0, moonbloom: 0, shipped: 0, monsters: 0, deepest: 0, gifts: 0, requests: 0, processed: 0, ore: 0, forage: 0 };
 }
 
 function starterInventory(): (Stack | null)[] {
@@ -82,6 +91,8 @@ export class FarmGame {
   seed: number;
   farm: World;
   town: World;
+  forest: World;
+  beach: World;
   world: World;
   interiors = new Map<string, World>();
   monsters: Monster[] = [];
@@ -115,7 +126,10 @@ export class FarmGame {
   pickups: Pickup[] = [];
   particles = new ParticleSystem();
   fishing: FishingState | null = null;
+  casting: CastingState | null = null;
+  castPower = 0;
   fishingFish: string | null = null;
+  fishLog: Record<string, FishRecord> = {};
   camX = 0;
   camY = 0;
   viewW = 480;
@@ -148,16 +162,57 @@ export class FarmGame {
     this.seed = seed;
     this.farm = createFarm(seed);
     this.town = createTown(seed);
+    this.forest = createForest(seed);
+    this.beach = createBeach(seed);
     this.world = this.farm;
+    this.refreshWilds();
     spawnAnimal(this, 'chicken');
     rollRequests(this);
     rollVisitors(this, true);
   }
 
+  /** Daily refresh of forage and schooling fish across the outdoor regions. */
+  private refreshWilds(): void {
+    const s = this.season();
+    spawnForage(this.forest, forageTable.forest[s], 12, Math.random, ['grass']);
+    spawnForage(this.beach, forageTable.beach[s], 9, Math.random, ['sand']);
+    for (const w of [this.farm, this.town, this.forest, this.beach]) rollFishSpots(w, Math.random);
+  }
+
+  outdoor(id: MapId): World {
+    switch (id) {
+      case 'town':
+        return this.town;
+      case 'forest':
+        return this.forest;
+      case 'beach':
+        return this.beach;
+      default:
+        return this.farm;
+    }
+  }
+
+  /** The outdoor region the player is in (buildings count as the region they stand in). */
+  region(): MapId {
+    if (this.world.indoor) return this.world.warps[0]?.to ?? 'farm';
+    return this.world.id;
+  }
+
+  minimapFor(id: MapId): MinimapView | null {
+    let w: World | null = null;
+    if (id === 'mine') w = this.world.dark ? this.world : null;else
+    if (id !== 'interior') w = this.outdoor(id);
+    if (!w) return null;
+    let marker: [number, number] | null = null;
+    if (this.world === w) marker = [this.player.x / TILE, (this.player.y - 4) / TILE];else
+    if (this.world.indoor && this.world.warps[0]?.to === id) marker = [this.world.warps[0].tx + 0.5, this.world.warps[0].ty + 0.5];
+    return renderMinimap(w, this.season(), marker);
+  }
+
   // ---------- tap to walk ----------
   /** Tap/click on the map: walk there, or walk next to the thing tapped and interact with it. */
   tapAt(sx: number, sy: number): void {
-    if (this.mode !== 'play' || this.pending || this.player.action || this.fishing) return;
+    if (this.mode !== 'play' || this.pending || this.player.action || this.fishing || this.casting) return;
     const wx = this.camX + sx / this.viewScale;
     const wy = this.camY + sy / this.viewScale;
     const w = this.world;
@@ -175,7 +230,7 @@ export class FarmGame {
     const crop = w.crops[i];
     const o = w.objects[i];
     const solid = isSolid(w, tx, ty);
-    if (!interactive) interactive = solid || !!crop && isMature(crop) || !!o && o.kind === 'jar';
+    if (!interactive) interactive = solid || !!crop && isMature(crop) || !!o && (o.kind === 'jar' || o.kind === 'forage');
     const pl = this.player;
     const ptx = Math.floor(pl.x / TILE);
     const pty = Math.floor((pl.y - 3) / TILE);
@@ -183,9 +238,9 @@ export class FarmGame {
       this.arrive({ x: tx, y: ty, interact: true });
       return;
     }
-    const goals = interactive ? neighbourGoals(w, tx, ty) : new Set<number>([i]);
-    if (!goals.size) return;
-    const p = findPath(w, ptx, pty, goals);
+    const targets = interactive ? neighbourGoals(w, tx, ty) : new Set<number>([i]);
+    if (!targets.size) return;
+    const p = findPath(w, ptx, pty, targets);
     if (!p) {
       this.toast('那边过不去', 'info');
       return;
@@ -307,13 +362,16 @@ export class FarmGame {
     } else if (this.fishing) {
       updateFishing(this, dt, input);
       pl.moving = false;
+    } else if (this.casting) {
+      updateCasting(this, dt, input);
+      pl.moving = false;
     } else {
       const manual = input.up || input.down || input.left || input.right;
       if (manual && this.path) this.cancelPath();
       const mv = this.path ? this.pathInput(input, dt) : input;
       this.move(dt, mv);
       if (mv.up && !this.world.indoor) this.tryDoor();
-      if (input.usePressed || input.useHeld && this.useCooldown <= 0) {
+      if (input.usePressed || input.useHeld && this.useCooldown <= 0 && this.inv[this.selected]?.id !== 'rod') {
         actWithSelected(this);
         this.useCooldown = this.inv[this.selected]?.id === 'sword' ? 0.26 : 0.34;
       }
@@ -387,6 +445,7 @@ export class FarmGame {
     if (this.pending) return;
     this.pending = p;
     this.fishing = null;
+    this.casting = null;
     this.player.action = null;
     this.player.moving = false;
   }
@@ -413,11 +472,10 @@ export class FarmGame {
       const [sx, sy] = w.spawn ?? [Math.floor(w.w / 2), w.h - 2];
       this.player = spawnPlayer(sx, sy, 'up');
     } else {
-      const fromMap = this.world.id;
-      this.world = p.to === 'farm' ? this.farm : this.town;
+      this.world = this.outdoor(p.to);
       this.monsters = [];
       this.player = spawnPlayer(p.tx, p.ty, p.dir);
-      if (!fromIndoor || fromMap !== 'interior') this.setBanner(MAP_NAMES[p.to], MAP_SUBS[p.to]);
+      if (!fromIndoor) this.setBanner(MAP_NAMES[p.to], MAP_SUBS[p.to]);
     }
     this.particles.list = [];
     this.life.critters = [];
@@ -483,26 +541,34 @@ export class FarmGame {
     return false;
   }
 
+  /**
+   * Pixel-locked camera. In play it follows the rounded player position exactly, so the hero never
+   * drifts against the background by a sub-pixel (the source of the old "shimmer"). Only the title
+   * screen eases, and the renderer floors that to whole pixels too.
+   */
   private updateCamera(dt: number): void {
     const mapW = this.world.w * TILE;
     const mapH = this.world.h * TILE;
+    const halfW = Math.floor(this.viewW / 2);
+    const halfH = Math.floor(this.viewH / 2);
     let tx: number;
     let ty: number;
-    if (this.mode === 'title') {
-      tx = 20 * TILE + Math.sin(this.elapsed * 0.05) * 150 - this.viewW / 2;
-      ty = 17 * TILE + Math.sin(this.elapsed * 0.037) * 70 - this.viewH / 2;
+    const title = this.mode === 'title';
+    if (title) {
+      tx = 20 * TILE + Math.sin(this.elapsed * 0.05) * 150 - halfW;
+      ty = 17 * TILE + Math.sin(this.elapsed * 0.037) * 70 - halfH;
     } else {
-      tx = this.player.x - this.viewW / 2;
-      ty = this.player.y - 14 - this.viewH / 2;
+      tx = Math.round(this.player.x) - halfW;
+      ty = Math.round(this.player.y - 14) - halfH;
     }
-    tx = mapW > this.viewW ? Math.min(Math.max(tx, 0), mapW - this.viewW) : (mapW - this.viewW) / 2;
-    ty = mapH > this.viewH ? Math.min(Math.max(ty, 0), mapH - this.viewH) : (mapH - this.viewH) / 2;
-    if (this.snapCam) {
+    tx = mapW > this.viewW ? Math.min(Math.max(tx, 0), Math.floor(mapW - this.viewW)) : Math.floor((mapW - this.viewW) / 2);
+    ty = mapH > this.viewH ? Math.min(Math.max(ty, 0), Math.floor(mapH - this.viewH)) : Math.floor((mapH - this.viewH) / 2);
+    if (this.snapCam || !title) {
       this.camX = tx;
       this.camY = ty;
       this.snapCam = false;
     } else {
-      const k = 1 - Math.exp(-dt * (this.mode === 'title' ? 2 : 6));
+      const k = 1 - Math.exp(-dt * 2);
       this.camX += (tx - this.camX) * k;
       this.camY += (ty - this.camY) * k;
     }
@@ -623,27 +689,18 @@ export class FarmGame {
   // ---------- panels & days ----------
   togglePanel(m: PanelMode): void {
     if (this.mode === m) this.mode = 'play';else
-    if (this.mode === 'play' && !this.fishing && !this.player.action) this.mode = m;
+    if (this.mode === 'play' && !this.fishing && !this.casting && !this.player.action) this.mode = m;
     this.dirty = true;
   }
 
   closePanel(): void {
     if (this.mode === 'dialog') this.dialog = null;
-    if (['store', 'smith', 'tavern', 'board', 'inventory', 'journal', 'villagers', 'sleep', 'dialog'].includes(this.mode)) this.mode = 'play';
+    if (['store', 'smith', 'tavern', 'board', 'inventory', 'journal', 'villagers', 'map', 'sleep', 'dialog'].includes(this.mode)) this.mode = 'play';
     this.dirty = true;
   }
 
-  finishFishing(success: boolean): void {
-    const id = this.fishingFish;
-    this.fishingFish = null;
-    this.mode = 'play';
-    if (success && id) {
-      this.addItem(id, 1);
-      this.stats.fish++;
-      this.toast(`钓到了 ${getItem(id).name}！`, 'good');
-      this.checkGoals();
-    } else this.toast('鱼挣脱了……', 'warn');
-    this.dirty = true;
+  finishFishing(result: FishResult): void {
+    resolveCatch(this, result);
   }
 
   sleep(passedOut: boolean): void {
@@ -663,6 +720,7 @@ export class FarmGame {
     this.summary = { day: this.day, season: this.season(), items, total, passedOut, fainted: this.fainted, lost, goals: [...this.todayGoals] };
     this.passedOut = passedOut;
     this.fishing = null;
+    this.casting = null;
     this.player.action = null;
     this.dialog = null;
     this.mode = 'summary';
@@ -684,6 +742,7 @@ export class FarmGame {
     resetNpcsForDay(this);
     rollRequests(this);
     onNewDay(this);
+    this.refreshWilds();
     this.cancelPath();
     this.energy = this.passedOut ? Math.round(this.maxEnergy * 0.65) : this.maxEnergy;
     this.hp = this.fainted ? Math.round(this.maxHp * 0.6) : this.maxHp;
@@ -698,7 +757,7 @@ export class FarmGame {
     this.mode = 'play';
     this.snapCam = true;
     if (this.season() !== prev) this.toast(`${SEASON_NAMES[this.season()]}天来了`, 'good');
-    if (this.weather === 'rain') this.toast('下雨了 — 作物今天不用浇水', 'info');
+    if (this.weather === 'rain') this.toast('下雨了 — 作物今天不用浇水，林泽鲶和锦鲤更爱咬钩', 'info');
     if (processed) this.toast(`腌制罐里的 ${processed} 份加工品做好了`, 'good');
     if (this.animals.some((a) => a.ready)) this.toast('动物们留下了礼物，去鸡舍旁看看吧', 'good');
     this.setBanner(`${SEASON_NAMES[this.season()]} · 第 ${this.dayOfSeason()} 天`, MAP_NAMES.farm);
@@ -713,7 +772,7 @@ export class FarmGame {
     this.snapCam = true;
     this.particles.list = [];
     this.setBanner(MAP_NAMES.farm, '春 · 第 1 天');
-    this.toast('走出小屋，先翻土播种，再沿着东边的小路去灯湖镇看看吧', 'good');
+    this.toast('走出小屋翻土播种。往西是雾林，往东过桥是灯湖镇，往南能到海滩 — 按 M 打开地图', 'good');
     this.save();
     this.dirty = true;
   }
@@ -724,6 +783,8 @@ export class FarmGame {
     this.seed = d.seed;
     this.farm = worldFromSave(d);
     this.town = createTown(d.seed);
+    this.forest = createForest(d.seed);
+    this.beach = createBeach(d.seed);
     this.interiors.clear();
     this.money = d.money;
     this.day = d.day;
@@ -736,6 +797,7 @@ export class FarmGame {
     this.upgrades = { hoe: 0, can: 0, axe: 0, pickaxe: 0, sword: 0, ...d.upgrades };
     this.stats = { ...emptyStats(), ...d.stats };
     this.goalsDone = d.goalsDone;
+    this.fishLog = d.fishLog ?? {};
     if (d.npcs) {
       for (const st of this.npcs) {
         const s = d.npcs.find((x) => x.id === st.id);
@@ -747,6 +809,7 @@ export class FarmGame {
     }
     if (d.animals) this.animals = d.animals;
     if (d.requests) this.requests = d.requests;
+    this.refreshWilds();
     this.time = DAY_START;
     this.wakeInHouse();
     this.particles.list = [];
@@ -773,7 +836,8 @@ export class FarmGame {
       goalsDone: this.goalsDone,
       npcs: this.npcs.map((n) => ({ id: n.id, friendship: n.friendship, rewarded: n.rewarded })),
       animals: this.animals,
-      requests: this.requests
+      requests: this.requests,
+      fishLog: this.fishLog
     });
   }
 
@@ -793,6 +857,7 @@ export class FarmGame {
       maxHp: this.maxHp,
       mapId: this.world.id,
       mapName: this.world.name,
+      region: this.region(),
       floor: this.world.floor,
       inventory: this.inv.map((s) => s ? { ...s } : null),
       selected: this.selected,
@@ -805,6 +870,7 @@ export class FarmGame {
       goalsDone: [...this.goalsDone],
       summary: this.summary,
       fishingFish: this.fishingFish,
+      fishLog: { ...this.fishLog },
       upgrades: { ...this.upgrades },
       hasSave: hasSave(),
       dialog: this.dialog,

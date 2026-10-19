@@ -9,8 +9,7 @@ interface ShopRowProps {
   children: React.ReactNode;
 }
 
-export const btnBase =
-'btn-wood rounded-md px-3.5 pb-2 pt-1.5 text-sm font-black disabled:cursor-not-allowed';
+export const btnBase = 'btn-wood rounded-md px-3.5 pb-2 pt-1.5 text-sm font-black disabled:cursor-not-allowed';
 export const btnPrimary = `${btnBase} bg-amber text-parch-ink hover:bg-[#ffc76a]`;
 export const btnGhost = `${btnBase} bg-wood text-cream hover:bg-wood-hi`;
 
@@ -48,9 +47,7 @@ export function Tabs<T extends string>({ tabs, value, onChange }: TabsProps<T>) 
         type="button"
         aria-selected={value === t.id}
         onClick={() => onChange(t.id)}
-        className={`btn-wood rounded-md px-4 py-1.5 text-sm font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-amber ${
-        value === t.id ? 'bg-parch text-parch-ink' : 'bg-wood-lo text-cream-dim hover:text-cream'}`
-        }>
+        className={`btn-wood rounded-md px-4 py-1.5 text-sm font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-amber ${value === t.id ? 'bg-parch text-parch-ink' : 'bg-wood-lo text-cream-dim hover:text-cream'}`}>
           {t.label}
         </button>
       )}

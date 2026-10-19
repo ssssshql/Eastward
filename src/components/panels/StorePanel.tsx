@@ -40,6 +40,7 @@ export function StorePanel({ snap, onBuy, onBuyAnimal, onClose }: StorePanelProp
                   买 5
                 </button>
               </ShopRow>);
+
         })}
         {tab === 'animals' &&
         animalOffers.map((o) => {
@@ -52,6 +53,7 @@ export function StorePanel({ snap, onBuy, onBuyAnimal, onClose }: StorePanelProp
                   {full ? '已满' : '购买'}
                 </button>
               </ShopRow>);
+
         })}
       </ul>
     </Modal>);

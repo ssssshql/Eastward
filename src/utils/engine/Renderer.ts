@@ -33,7 +33,7 @@ export class Renderer {
   private patterns: CanvasPattern[] = [];
   private flakes: Flake[] = [];
   private flakeKind: Weather = 'clear';
-  options: RenderOptions = { dof: true };
+  options: RenderOptions = { dof: false };
   scale = 3;
   viewW = 480;
   viewH = 270;
@@ -126,8 +126,9 @@ export class Renderer {
     g.viewW = this.viewW;
     g.viewH = this.viewH;
     g.viewScale = this.scale;
-    const fx = Math.floor(g.camX);
-    const fy = Math.floor(g.camY);
+    // Whole-pixel camera: the scene is never offset by a fraction of a game pixel.
+    const fx = Math.round(g.camX);
+    const fy = Math.round(g.camY);
     const view = { x: fx, y: fy, w: this.scene.width, h: this.scene.height };
     const dark = g.world.dark;
     const indoor = g.world.indoor;
@@ -147,12 +148,8 @@ export class Renderer {
       this.fx.render(this.scene, this.light, this.display.width, this.display.height, {
         viewW: this.viewW,
         viewH: this.viewH,
-        fracX: g.camX - fx,
-        fracY: g.camY - fy,
         camX: fx,
         camY: fy,
-        sunX: sun.dx,
-        sunY: sun.dy,
         time: g.elapsed,
         night,
         rain: weather === 'rain' && !indoor ? 1 : 0,
@@ -168,7 +165,7 @@ export class Renderer {
       const s = this.scale;
       c.imageSmoothingEnabled = false;
       c.globalCompositeOperation = 'source-over';
-      c.drawImage(this.scene, -(g.camX - fx) * s, -(g.camY - fy) * s, this.scene.width * s, this.scene.height * s);
+      c.drawImage(this.scene, 0, 0, this.scene.width * s, this.scene.height * s);
       c.globalCompositeOperation = 'multiply';
       const a = ambient.map((x) => Math.round(Math.min(1, x) * 255));
       c.fillStyle = `rgb(${a[0]},${a[1]},${a[2]})`;

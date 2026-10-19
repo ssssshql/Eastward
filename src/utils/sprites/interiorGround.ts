@@ -100,7 +100,6 @@ function paintRug(p: Px, r: Rug): void {
       }
       p.set(x0 + x, y0 + y, c);
     }
-    // Fringe on the short ends.
     if (y % 2 === 0) {
       p.set(x0 - 1, y0 + y, bord[4]);
       p.set(x0 + w, y0 + y, bord[4]);
@@ -149,7 +148,6 @@ export function paintInterior(world: World): HTMLCanvasElement {
           if (y === backH - 4 && px > 1 && px < 14) li = 1.6;
           c = pick(trimP, li);
         } else c = pick(trimP, y === backH - 2 ? 1.2 : 0.6);
-        // Corner shading where back wall meets side walls.
         if (tx === 1 && lx < 3) c = pick(wallP, 1);
         if (tx === world.w - 2 && lx > 12) c = pick(wallP, 0.8);
         p.set(x, y, c);
@@ -157,7 +155,6 @@ export function paintInterior(world: World): HTMLCanvasElement {
       }
       if (g === 'wall') {
         let li = 1.6 + (hash2(x >> 2, y >> 2, 81) - 0.5) * 0.6;
-        // Lit lip where the wall top meets the room.
         if (gAt(tx, ty - 1) !== 'wall' && ty > 0 && ly < 2) li = ly === 0 ? 4 : 2.8;
         if (gAt(tx + 1, ty) !== 'wall' && lx > 13 && ty >= BACK_ROWS) li = lx === 15 ? 3.4 : 2.6;
         if (gAt(tx - 1, ty) !== 'wall' && lx < 2 && ty >= BACK_ROWS) li = lx === 0 ? 3.4 : 2.6;
@@ -173,7 +170,6 @@ export function paintInterior(world: World): HTMLCanvasElement {
     }
   }
   for (const r of world.rugs) paintRug(p, r);
-  // Doormat on the exit.
   for (const wp of world.warps) {
     const mat = ramp('#8a5a3a', 5, 0.5, 0.4);
     for (let y = 0; y < 10; y++) for (let x = 0; x < 14; x++) {

@@ -12,12 +12,7 @@ export function RotateHint({ onDismiss }: RotateHintProps) {
   const reduce = useReducedMotion();
   const canFs = fullscreenSupported();
   return (
-    <motion.div
-      className="absolute inset-0 z-50 flex items-center justify-center bg-ink/95 p-6"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}>
+    <motion.div className="absolute inset-0 z-50 flex items-center justify-center bg-ink/95 p-6" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
       <section className="panel w-full max-w-sm px-7 pb-7 pt-8 text-center text-cream" aria-label="请横屏游玩">
         <motion.div
           className="mx-auto flex h-20 w-20 items-center justify-center"

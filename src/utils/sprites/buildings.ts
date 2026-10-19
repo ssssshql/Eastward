@@ -115,8 +115,6 @@ export function chimneyOf(kind: string, variant: number): [number, number] | nul
   return [s.chimney + 4, L.H - 3];
 }
 
-// ---------- pieces ----------
-
 function paintChimney(p: Px, s: Spec, L: Layout, season: Season): [number, number] | null {
   if (s.chimney == null) return null;
   const cx = L.x0 + s.chimney;
@@ -176,7 +174,6 @@ function paintRoof(p: Px, s: Spec, L: Layout, season: Season): void {
       roofTile(p, x, y, rows, row, (x - L.x0 + off + 60) % 6, ly, roof, season, t);
     }
   }
-  // Rounded ridge cap.
   const rl = L.x0 + inset - 2;
   const rr = L.x1 - inset + 2;
   for (let x = rl; x <= rr; x++) {
@@ -242,7 +239,6 @@ function paintWall(p: Px, s: Spec, L: Layout): void {
           li = 3.2 + (hash2(x >> 1, y >> 1, 3) - 0.5) * 0.5 + (hash2(x >> 3, y >> 3, 5) - 0.5) * 0.4;
           if (hash2(x, y, 6) < 0.008) li = 1.8;
       }
-      // Eaves shadow and grime
       if (wy < 6) li -= (6 - wy) * 0.42;
       if (y > L.wallBottom - 6) li -= 0.5 + (hash2(x, y, 8) < 0.2 ? 0.6 : 0);
       if (x <= L.x0 + 1) li += 0.8;
@@ -263,7 +259,6 @@ function paintWall(p: Px, s: Spec, L: Layout): void {
     beam(x, L.wallTop + 4, 2);
     beam(x, L.wallTop + 5, 1);
   }
-  // Diagonal braces near the corners (Tudor framing).
   const bh = Math.min(14, s.wallH - 18);
   for (let i = 0; i <= bh; i++) {
     for (let k = 0; k < 2; k++) {
@@ -343,7 +338,6 @@ function windowAt(p: Px, s: Spec, x0: number, y0: number, lit: boolean, season: 
 
 function paintDoor(p: Px, s: Spec, L: Layout, lit: boolean, season: Season, lamps: [number, number][]): void {
   const door = ramp(s.door, 6, 0.62, 0.42);
-  const trim = ramp(s.trim, 5, 0.5, 0.3);
   const cx = L.cx;
   const dx = cx - 8;
   const top = L.doorTop;
@@ -370,7 +364,6 @@ function paintDoor(p: Px, s: Spec, L: Layout, lit: boolean, season: Season, lamp
   p.rect(cx - 1, top + 2, 1, 5, door[1]);
   p.set(cx + 5, top + 15, BRASS);
   p.set(cx + 5, top + 16, [180, 130, 60]);
-  // Pent roof over the door
   const roof = ramp(s.awning ? s.awning[0] : s.roof, 5, 0.62, 0.42);
   for (let y = 0; y < 6; y++) {
     for (let x = cx - 14 - Math.floor(y / 2); x <= cx + 13 + Math.floor(y / 2); x++) {
@@ -384,7 +377,6 @@ function paintDoor(p: Px, s: Spec, L: Layout, lit: boolean, season: Season, lamp
     p.set(cx - 13 + i, top - 3 + i, wood[2]);
     p.set(cx + 12 - i, top - 3 + i, wood[1]);
   }
-  // Steps
   for (let y = L.wallBottom + 1; y <= L.H - 2; y++) {
     const w = y < L.wallBottom + 3 ? 11 : 13;
     for (let x = cx - w; x < cx + w; x++) {
@@ -394,7 +386,6 @@ function paintDoor(p: Px, s: Spec, L: Layout, lit: boolean, season: Season, lamp
       p.set(x, y, pick(STONE, li));
     }
   }
-  // Wall lantern
   const lx = cx + 15;
   const ly = top + 1;
   p.line(lx - 2, ly - 2, lx + 1, ly - 2, IRON[1]);
@@ -403,7 +394,6 @@ function paintDoor(p: Px, s: Spec, L: Layout, lit: boolean, season: Season, lamp
   p.rect(lx - 1, ly + 2, 3, 4, lit ? [255, 222, 130] : [150, 170, 180]);
   if (lit) p.set(lx, ly + 3, [255, 250, 210]);
   lamps.push([lx, ly + 4]);
-  void trim;
 }
 
 function paintSign(p: Px, s: Spec, L: Layout): void {

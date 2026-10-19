@@ -36,6 +36,7 @@ export function SmithPanel({ snap, onSmelt, onUpgrade, onClose }: SmithPanelProp
                   熔炼
                 </button>
               </ShopRow>);
+
         })}
         {tab === 'upgrade' &&
         TOOLS.map((id) => {
@@ -49,6 +50,7 @@ export function SmithPanel({ snap, onSmelt, onUpgrade, onClose }: SmithPanelProp
                     满级
                   </span>
                 </ShopRow>);
+
           }
           const ok = snap.money >= u.price && u.bars.every((b) => count(b.id) >= b.qty);
           return (
@@ -58,6 +60,7 @@ export function SmithPanel({ snap, onSmelt, onUpgrade, onClose }: SmithPanelProp
                   升级
                 </button>
               </ShopRow>);
+
         })}
       </ul>
     </Modal>);

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AnimalKind, PanelMode, UiSnapshot, UpgradeId } from '../types/game';
+import type { AnimalKind, FishResult, MapId, MinimapView, PanelMode, UiSnapshot, UpgradeId } from '../types/game';
 import { FarmGame, InputState } from '../utils/engine/FarmGame';
 import { Renderer } from '../utils/engine/Renderer';
 import { buy, buyAnimal, craft, smelt, upgrade } from '../utils/engine/economy';
@@ -20,12 +20,13 @@ export interface GameActions {
   closePanel: () => void;
   confirmSleep: () => void;
   continueDay: () => void;
-  finishFishing: (success: boolean) => void;
+  finishFishing: (r: FishResult) => void;
   newGame: () => void;
   continueGame: () => void;
   touchMove: (d: TouchDirs) => void;
   touchUse: (down: boolean) => void;
   touchInteract: () => void;
+  minimap: (id: MapId) => MinimapView | null;
 }
 
 export interface TouchDirs {
@@ -109,6 +110,7 @@ export function useGame({ depthOfField }: {depthOfField: boolean;}) {
       } else if (k === 'tab' || k === 'i') game.togglePanel('inventory');else
       if (k === 'g') game.togglePanel('journal');else
       if (k === 'v') game.togglePanel('villagers');else
+      if (k === 'm') game.togglePanel('map');else
       if (k === 'escape') game.closePanel();else
       if (game.mode === 'play') {
         const idx = HOTKEYS.indexOf(e.key);
@@ -138,6 +140,20 @@ export function useGame({ depthOfField }: {depthOfField: boolean;}) {
       if (game.mode !== 'play' || coarse) return;
       const wx = game.camX + e.offsetX / game.viewScale;
       const wy = game.camY + e.offsetY / game.viewScale;
+      if (e.button === 0 && game.fishing) {
+        input.usePressed = true;
+        return;
+      }
+      // Holding the rod: click anywhere to face that way and charge a cast.
+      if (e.button === 0 && game.inv[game.selected]?.id === 'rod' && !game.player.action && !game.world.indoor) {
+        const dx = wx - game.player.x;
+        const dy = wy - (game.player.y - 6);
+        game.cancelPath();
+        game.player.dir = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 'right' : 'left' : dy > 0 ? 'down' : 'up';
+        input.usePressed = true;
+        input.useHeld = true;
+        return;
+      }
       const tx = Math.floor(wx / 16) * 16 + 8;
       const ty = Math.floor(wy / 16) * 16 + 8;
       const inReach = Math.hypot(tx - game.player.x, ty - (game.player.y - 6)) <= REACH;
@@ -249,9 +265,10 @@ export function useGame({ depthOfField }: {depthOfField: boolean;}) {
       closePanel: () => call((g) => g.closePanel()),
       confirmSleep: () => call((g) => g.sleep(false)),
       continueDay: () => call((g) => g.continueDay()),
-      finishFishing: (s) => call((g) => g.finishFishing(s)),
+      finishFishing: (r) => call((g) => g.finishFishing(r)),
       newGame: () => call((g) => g.startNewGame()),
       continueGame: () => call((g) => g.continueSaved()),
+      minimap: (id) => gameRef.current?.minimapFor(id) ?? null,
       touchMove: (d) => {
         const input = inputRef.current;
         input.mouseInside = false;

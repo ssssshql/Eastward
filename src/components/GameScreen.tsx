@@ -3,6 +3,7 @@ import { AnimatePresence } from 'framer-motion';
 import { RotateHint } from './RotateHint';
 import { enterImmersive, ensureMobileMeta, usePortrait } from '../hooks/useFullscreen';
 import { useGame } from '../hooks/useGame';
+import { useIsTouch } from '../hooks/useIsTouch';
 import { Hud } from './hud/Hud';
 import { MapBanner } from './hud/MapBanner';
 import { TitleScreen } from './TitleScreen';
@@ -13,12 +14,12 @@ import { BoardPanel } from './panels/BoardPanel';
 import { VillagersPanel } from './panels/VillagersPanel';
 import { InventoryPanel } from './panels/InventoryPanel';
 import { JournalPanel } from './panels/JournalPanel';
+import { MapPanel } from './panels/MapPanel';
 import { SleepDialog } from './panels/SleepDialog';
 import { DaySummary } from './panels/DaySummary';
 import { FishingMinigame } from './FishingMinigame';
 import { DialogBox } from './DialogBox';
 import { TouchControls } from './TouchControls';
-import { useIsTouch } from '../hooks/useIsTouch';
 
 interface GameScreenProps {
   depthOfField: boolean;
@@ -59,10 +60,11 @@ export function GameScreen({ depthOfField }: GameScreenProps) {
         {snap && mode === 'tavern' && <TavernPanel key="tavern" money={snap.money} onBuy={actions.buy} onClose={actions.closePanel} />}
         {snap && mode === 'board' && <BoardPanel key="board" snap={snap} onDeliver={actions.deliver} onClose={actions.closePanel} />}
         {snap && mode === 'villagers' && <VillagersPanel key="villagers" snap={snap} onClose={actions.closePanel} />}
+        {snap && mode === 'map' && <MapPanel key="map" snap={snap} getMinimap={actions.minimap} onClose={actions.closePanel} />}
         {snap && mode === 'inventory' &&
         <InventoryPanel key="inv" inventory={snap.inventory} selected={snap.selected} onSwap={actions.swapSlots} onCraft={actions.craft} onEat={actions.eat} onClose={actions.closePanel} />
         }
-        {snap && mode === 'journal' && <JournalPanel key="journal" stats={snap.stats} goalsDone={snap.goalsDone} onClose={actions.closePanel} />}
+        {snap && mode === 'journal' && <JournalPanel key="journal" stats={snap.stats} goalsDone={snap.goalsDone} fishLog={snap.fishLog} onClose={actions.closePanel} />}
         {snap && mode === 'sleep' && <SleepDialog key="sleep" time={snap.time} onSleep={actions.confirmSleep} onCancel={actions.closePanel} />}
         {snap && mode === 'dialog' && snap.dialog && <DialogBox key="dialog" dialog={snap.dialog} onClose={actions.closePanel} />}
         {snap && mode === 'fishing' && snap.fishingFish && <FishingMinigame key="fish" fishId={snap.fishingFish} onFinish={actions.finishFishing} />}

@@ -1,14 +1,14 @@
-import type { Crop, Prompt, Structure, WorldObject } from '../../types/game';
+import type { Crop, Prompt, PromptIcon, Structure, WorldObject } from '../../types/game';
 import type { FarmGame, InputState, Target } from './FarmGame';
 import { REACH, TILE } from './constants';
 import { ENTERABLE, inBounds, isWater, makeObj } from './world';
 import { getCrop, getItem, isSellable } from '../items';
-import { fishList } from '../../data/fish';
 import { processing } from '../../data/recipes';
 import { animalNear, hitMonsters, npcDef, npcNear } from './entities';
 import { giveGift, talkTo } from './social';
 import { shipSlot } from './economy';
 import { interactVisitor, visitorNear } from './life';
+import { beginCharge, castLine, waterAhead } from './fishing';
 
 export const DIRV: Record<string, [number, number]> = { down: [0, 1], up: [0, -1], left: [-1, 0], right: [1, 0] };
 
@@ -73,6 +73,16 @@ function face(g: FarmGame, t: Target): void {
   g.player.dir = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 'right' : 'left' : dy > 0 ? 'down' : 'up';
 }
 
+function pickForage(g: FarmGame, x: number, y: number, o: WorldObject): void {
+  if (!o.item) return;
+  if (!g.addItem(o.item, 1)) return;
+  g.world.objects[y * g.world.w + x] = null;
+  g.stats.forage++;
+  g.particles.burst('spark', x * TILE + 8, y * TILE + 6, 8, SPARK, { speed: 18, up: 36, life: 0.7 });
+  g.particles.burst('chip', x * TILE + 8, y * TILE + 11, 4, GREEN, { speed: 16 });
+  g.checkGoals();
+}
+
 /** Things you can talk to / interact with take priority over tool use. */
 function tryInteractables(g: FarmGame): boolean {
   const [fx, fy] = facePoint(g);
@@ -111,6 +121,10 @@ function tryInteractables(g: FarmGame): boolean {
     return true;
   }
   const o = w.objects[i];
+  if (o && o.kind === 'forage') {
+    pickForage(g, t.x, t.y, o);
+    return true;
+  }
   if (o && o.kind === 'jar') {
     useJar(g, o);
     return true;
@@ -223,11 +237,15 @@ export function actWithSelected(g: FarmGame): void {
       }
       face(g, t);
       if (st.id === 'rod') {
-        startCast(g);
+        beginCharge(g);
         return;
       }
       if (g.world.id === 'town' && (st.id === 'hoe' || st.id === 'axe' || st.id === 'pickaxe')) {
         g.toast('这里是小镇的公共区域，别乱挖哦', 'info');
+        return;
+      }
+      if (st.id === 'hoe' && g.world.id !== 'farm') {
+        g.toast('只有自家农场的土地才能开垦', 'info');
         return;
       }
       g.player.action = { tool: st.id, t: 0, dur: st.id === 'can' ? 0.36 : st.id === 'sword' ? 0.24 : 0.3, tx: t.x, ty: t.y, applied: false };
@@ -405,7 +423,7 @@ function applyTool(g: FarmGame, tool: string, tx: number, ty: number): void {
                 maybeLadder(g, i);
               }
             }
-          } else if (o && (o.kind === 'sprinkler' || o.kind === 'lamp' || o.kind === 'jar' && !o.item)) {
+          } else if (o && (o.kind === 'sprinkler' || o.kind === 'lamp' && w.id === 'farm' || o.kind === 'jar' && !o.item)) {
             w.objects[i] = null;
             g.addItem(o.kind, 1);
           } else if (o && o.kind === 'weed') {
@@ -420,9 +438,7 @@ function applyTool(g: FarmGame, tool: string, tx: number, ty: number): void {
         }
       case 'rod':
         cost = 2;
-        g.fishing = { phase: 'wait', t: 1.8 + Math.random() * 3.5, bx: cx, by: ty * TILE + 8 };
-        g.particles.spawn('ripple', cx, ty * TILE + 8, { life: 0.9 });
-        g.particles.burst('drop', cx, ty * TILE + 8, 5, WATERC, { speed: 15, up: 40 });
+        castLine(g, tx, ty);
         break;
     }
   }
@@ -503,107 +519,58 @@ function place(g: FarmGame, x: number, y: number): void {
   g.particles.burst('dust', x * TILE + 8, y * TILE + 12, 8, ['#d8c8a8', '#bfae90'], { speed: 30, up: 20 });
 }
 
-function startCast(g: FarmGame): void {
-  const pl = g.player;
-  const v = DIRV[pl.dir];
-  const ptx = Math.floor(pl.x / TILE);
-  const pty = Math.floor((pl.y - 4) / TILE);
-  let found: {x: number;y: number;} | null = null;
-  for (let d = 1; d <= 4; d++) {
-    const x = ptx + v[0] * d;
-    const y = pty + v[1] * d;
-    if (isWater(g.world, x, y)) found = { x, y };else
-    if (found) break;
-  }
-  if (!found) {
-    g.toast('面朝水面才能抛竿', 'info');
-    return;
-  }
-  pl.action = { tool: 'rod', t: 0, dur: 0.42, tx: found.x, ty: found.y, applied: false };
-}
-
-function pickFish(g: FarmGame): string {
-  const h = g.time / 60 % 24;
-  const night = h >= 19 || h < 6;
-  const pool = fishList.filter((f) => (!f.night || night) && (!f.map || f.map === g.world.id));
-  const weights = pool.map((f) => f.weight * (f.id === 'fish_koi' && g.weather === 'rain' ? 2.2 : 1));
-  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
-  for (let k = 0; k < pool.length; k++) {
-    r -= weights[k];
-    if (r <= 0) return pool[k].id;
-  }
-  return pool[0].id;
-}
-
-export function updateFishing(g: FarmGame, dt: number, input: InputState): void {
-  const f = g.fishing;
-  if (!f) return;
-  f.t -= dt;
-  if (input.usePressed || input.interactPressed) {
-    if (f.phase === 'bite') {
-      g.fishingFish = pickFish(g);
-      g.mode = 'fishing';
-    } else g.toast('收回了鱼线', 'info');
-    g.fishing = null;
-    g.dirty = true;
-    return;
-  }
-  if (Math.random() < dt * 0.8) g.particles.spawn('ripple', f.bx, f.by + 1, { life: 0.7 });
-  if (f.phase === 'wait' && f.t <= 0) {
-    f.phase = 'bite';
-    f.t = 1.0;
-    g.particles.burst('drop', f.bx, f.by, 6, WATERC, { speed: 20, up: 50 });
-    g.particles.spawn('ripple', f.bx, f.by, { life: 0.6 });
-    g.dirty = true;
-  } else if (f.phase === 'bite' && f.t <= 0) {
-    g.fishing = null;
-    g.toast('鱼溜走了……', 'warn');
-  }
-}
+const P = (key: string, text: string, icon: PromptIcon): Prompt => ({ key, text, icon });
 
 export function computePrompt(g: FarmGame): Prompt | null {
-  if (g.fishing) return g.fishing.phase === 'bite' ? { key: '空格', text: '上钩了！快收线' } : { key: '空格', text: '收回鱼线' };
+  if (g.casting) return P('空格', '松开抛竿', 'fish');
+  if (g.fishing) return g.fishing.phase === 'bite' ? P('空格', '上钩了！快收线', 'fish') : P('空格', '收回鱼线', 'fish');
   const st = g.inv[g.selected];
   const [fx, fy] = facePoint(g);
   const vis = visitorNear(g, fx, fy, 16);
   if (vis) {
-    if (vis.id === 'cat') return { key: 'E', text: vis.gifted ? '小猫在打盹' : '摸摸小猫' };
-    if (st && getItem(st.id).kind === 'food' && !vis.gifted) return { key: 'E', text: `把${getItem(st.id).name}分给流浪汉` };
-    return { key: 'E', text: '和流浪汉聊聊' };
+    if (vis.id === 'cat') return P('E', vis.gifted ? '小猫在打盹' : '摸摸小猫', 'hand');
+    if (st && getItem(st.id).kind === 'food' && !vis.gifted) return P('E', `把${getItem(st.id).name}分给流浪汉`, 'gift');
+    return P('E', '和流浪汉聊聊', 'talk');
   }
   const npc = npcNear(g, fx, fy, 16);
   if (npc) {
     const name = npcDef(npc.id).name;
-    if (st && getItem(st.id).kind !== 'tool') return { key: 'E', text: npc.gifted ? `和${name}聊聊` : `把${getItem(st.id).name}送给${name}` };
-    return { key: 'E', text: `和${name}聊聊` };
+    if (st && getItem(st.id).kind !== 'tool' && !npc.gifted) return P('E', `把${getItem(st.id).name}送给${name}`, 'gift');
+    return P('E', `和${name}聊聊`, 'talk');
   }
   const a = animalNear(g, fx, fy, 15);
-  if (a) return { key: 'E', text: a.ready ? `收集${a.kind === 'chicken' ? '鸡蛋' : '牛奶'}` : a.petted ? `「${a.name}」很开心` : `抚摸「${a.name}」` };
+  if (a) return P('E', a.ready ? `收集${a.kind === 'chicken' ? '鸡蛋' : '牛奶'}` : a.petted ? `「${a.name}」很开心` : `抚摸「${a.name}」`, 'hand');
   const t = g.target;
   const w = g.world;
   if (!t || !inBounds(w, t.x, t.y)) return null;
   const i = t.y * w.w + t.x;
   const c = w.crops[i];
-  if (c && isMature(c)) return { key: 'E', text: `收获 ${getCrop(c.id).name}` };
+  if (c && isMature(c)) return P('E', `收获 ${getCrop(c.id).name}`, 'hand');
   const o = w.objects[i];
+  if (o && o.kind === 'forage' && o.item) return P('E', `采集 ${getItem(o.item).name}`, 'hand');
   if (o && o.kind === 'jar') {
-    if (o.item && o.ready) return { key: 'E', text: `取出${getItem(processing[o.item]).name}` };
-    if (o.item) return { key: 'E', text: '腌制中……' };
-    if (st && processing[st.id]) return { key: 'E', text: `放入${getItem(st.id).name}` };
-    return { key: 'E', text: '腌制罐 · 手持作物放入' };
+    if (o.item && o.ready) return P('E', `取出${getItem(processing[o.item]).name}`, 'hand');
+    if (o.item) return P('E', '腌制中……', 'look');
+    if (st && processing[st.id]) return P('E', `放入${getItem(st.id).name}`, 'hand');
+    return P('E', '腌制罐 · 手持作物放入', 'look');
   }
   const si = w.blocked[i];
   if (si >= 0) {
     const s = w.structures[si];
-    if (s.kind === 'furniture') return s.label ? { key: 'E', text: s.label } : null;
-    if (ENTER_LABELS[s.kind]) return { key: 'E', text: ENTER_LABELS[s.kind] };
+    if (s.kind === 'furniture') {
+      if (!s.label) return null;
+      const icon: PromptIcon = s.use === 'sleep' ? 'sleep' : s.use === 'store' || s.use === 'smith' || s.use === 'tavern' ? 'talk' : 'look';
+      return P('E', s.label, icon);
+    }
+    if (ENTER_LABELS[s.kind]) return P('E', ENTER_LABELS[s.kind], 'door');
     const labels: Record<string, string> = { cart: '看看种子摊', board: '查看委托板', fountain: '许个愿' };
-    if (s.kind === 'bin') return st && isSellable(st.id) ? { key: 'E', text: `出货 ${getItem(st.id).name} ×${st.qty}` } : { key: 'E', text: '出货箱 · 手持要卖的物品' };
-    if (labels[s.kind]) return { key: 'E', text: labels[s.kind] };
+    if (s.kind === 'bin') return st && isSellable(st.id) ? P('E', `出货 ${getItem(st.id).name} ×${st.qty}`, 'ship') : P('E', '出货箱 · 手持要卖的物品', 'ship');
+    if (labels[s.kind]) return P('E', labels[s.kind], 'look');
   }
   if (!st) return null;
-  if (st.id === 'can' && w.ground[i] === 'water') return { key: '空格', text: '灌满水壶' };
+  if (st.id === 'rod' && !w.indoor && waterAhead(g)) return P('空格', '按住蓄力 · 松开抛竿', 'fish');
+  if (st.id === 'can' && w.ground[i] === 'water') return P('空格', '灌满水壶', 'hand');
   const def = getItem(st.id);
-  if (def.kind === 'food') return { key: '空格', text: `食用 ${def.name}` };
+  if (def.kind === 'food') return P('空格', `食用 ${def.name}`, 'hand');
   return null;
 }

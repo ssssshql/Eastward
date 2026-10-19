@@ -46,7 +46,7 @@ export function isSolid(w: World, x: number, y: number): boolean {
   if (g === 'water' || g === 'wall') return true;
   if (w.blocked[i] >= 0) return true;
   const o = w.objects[i];
-  return !!o && o.kind !== 'weed' && o.kind !== 'ladder';
+  return !!o && o.kind !== 'weed' && o.kind !== 'ladder' && o.kind !== 'forage';
 }
 
 export function isWater(w: World, x: number, y: number): boolean {
@@ -97,6 +97,36 @@ export function scatterDecor(world: World, r: () => number, flowerChance: number
       if (r() < flowerChance) world.decor.push({ x: x * 16 + 3 + r() * 10, y: y * 16 + 5 + r() * 9, kind: 'flower', variant: Math.floor(r() * 6) });
     }
   }
+}
+
+/** Clears yesterday's wild pickings and scatters fresh ones over the allowed ground. */
+export function spawnForage(world: World, pool: string[], count: number, r: () => number, allowed: Ground[]): void {
+  for (let i = 0; i < world.objects.length; i++) if (world.objects[i]?.kind === 'forage') world.objects[i] = null;
+  let placed = 0;
+  for (let k = 0; k < count * 40 && placed < count; k++) {
+    const x = 1 + Math.floor(r() * (world.w - 2));
+    const y = 1 + Math.floor(r() * (world.h - 2));
+    const i = y * world.w + x;
+    if (!allowed.includes(world.ground[i]) || world.objects[i] || world.blocked[i] >= 0 || warpAt(world, x, y)) continue;
+    world.objects[i] = { ...makeObj('forage'), item: pool[Math.floor(r() * pool.length)] };
+    placed++;
+  }
+}
+
+/** Picks open-water tiles (fully surrounded by water) where fish are schooling today. */
+export function rollFishSpots(world: World, r: () => number, count = 2): void {
+  const out: [number, number][] = [];
+  for (let k = 0; k < 400 && out.length < count; k++) {
+    const x = 1 + Math.floor(r() * (world.w - 2));
+    const y = 1 + Math.floor(r() * (world.h - 2));
+    let open = true;
+    for (let dy = -1; dy <= 1 && open; dy++) for (let dx = -1; dx <= 1; dx++) if (!isWater(world, x + dx, y + dy)) {
+      open = false;
+      break;
+    }
+    if (open && !out.some(([sx, sy]) => Math.abs(sx - x) + Math.abs(sy - y) < 6)) out.push([x, y]);
+  }
+  world.spots = out;
 }
 
 /** Overnight simulation for the farm: growth, drying, regrowth, processing and debris. */

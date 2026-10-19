@@ -11,7 +11,7 @@ interface TitleScreenProps {
 
 const EASE = [0.23, 1, 0.32, 1] as const;
 
-const FEATURES = ['农场 · 灯湖镇 · 无尽矿洞', '每栋房屋都能走进去', '镜面湖水 · 昼夜光影', '养殖 · 加工 · 委托 · 战斗'];
+const FEATURES = ['农场 · 小镇 · 雾林 · 海滩 · 矿洞', '每栋房屋都能走进去', '蓄力抛竿 · 鱼类图鉴', '养殖 · 加工 · 委托 · 战斗'];
 
 export function TitleScreen({ hasSave, onNew, onContinue }: TitleScreenProps) {
   const fs = useFullscreen();
@@ -37,7 +37,7 @@ export function TitleScreen({ hasSave, onNew, onContinue }: TitleScreenProps) {
         <div>
           <p className="text-xs font-bold tracking-[0.5em] text-amber">MISTVALE</p>
           <h1 className="title-shadow mt-3 text-5xl font-black leading-none tracking-tight sm:text-6xl lg:text-[88px]">雾谷农场</h1>
-          <p className="mt-4 hidden max-w-md text-base leading-relaxed text-cream/85 sm:block">山那边的老农场交到了你手里。白天耕种养殖，傍晚推门走进镇上的酒馆听居民闲聊，深夜举着灯下到矿洞最深处。</p>
+          <p className="mt-4 hidden max-w-md text-base leading-relaxed text-cream/85 sm:block">山那边的老农场交到了你手里。白天耕种养殖，去雾林采蘑菇、到海滩栈桥钓鱼，傍晚推门走进镇上的酒馆，深夜举着灯下到矿洞最深处。</p>
           <ul className="mt-4 flex flex-wrap gap-2 sm:mt-6">
             {FEATURES.map((f) =>
             <li key={f} className="rounded-md border-2 border-wood-ink bg-wood-lo/80 px-3 py-1 text-xs text-cream">
@@ -48,11 +48,7 @@ export function TitleScreen({ hasSave, onNew, onContinue }: TitleScreenProps) {
         </div>
         <div className="flex shrink-0 flex-col gap-3">
           {hasSave &&
-          <button
-            type="button"
-            autoFocus
-            onClick={onContinue}
-            className="btn-wood w-60 rounded-lg bg-amber py-3 text-lg font-black text-parch-ink hover:bg-[#ffc76a] focus:outline-none focus-visible:ring-2 focus-visible:ring-cream">
+          <button type="button" autoFocus onClick={onContinue} className="btn-wood w-60 rounded-lg bg-amber py-3 text-lg font-black text-parch-ink hover:bg-[#ffc76a] focus:outline-none focus-visible:ring-2 focus-visible:ring-cream">
               继续经营
             </button>
           }
@@ -60,12 +56,10 @@ export function TitleScreen({ hasSave, onNew, onContinue }: TitleScreenProps) {
             type="button"
             autoFocus={!hasSave}
             onClick={onNew}
-            className={`btn-wood w-60 rounded-lg py-3 text-lg font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-amber ${
-            hasSave ? 'bg-wood text-cream hover:bg-wood-hi' : 'bg-amber text-parch-ink hover:bg-[#ffc76a]'}`
-            }>
+            className={`btn-wood w-60 rounded-lg py-3 text-lg font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-amber ${hasSave ? 'bg-wood text-cream hover:bg-wood-hi' : 'bg-amber text-parch-ink hover:bg-[#ffc76a]'}`}>
             {hasSave ? '开始新的农场' : '开始经营'}
           </button>
-          <p className="mt-2 hidden w-60 text-xs leading-relaxed text-cream/60 [@media(pointer:fine)]:block">WASD 移动 · 走向门口进屋 · 空格/左键 使用 · E/右键 互动 · Tab 背包 · V 居民 · G 日志</p>
+          <p className="mt-2 hidden w-60 text-xs leading-relaxed text-cream/60 [@media(pointer:fine)]:block">WASD 移动 · 空格/左键 使用 · E/右键 互动 · Tab 背包 · M 地图 · G 日志</p>
           <p className="mt-1 w-60 text-xs leading-relaxed text-cream/60 [@media(pointer:fine)]:hidden">点击地面自动寻路 · 左侧摇杆移动 · 右侧按钮使用工具与互动</p>
         </div>
       </motion.div>

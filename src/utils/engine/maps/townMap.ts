@@ -4,6 +4,8 @@ import { addStructure, emptyWorld, inBounds, makeObj, nearStructure, scatterDeco
 import { rng } from '../../noise';
 
 export const TOWN_HUB: [number, number] = [24, 21];
+/** Beach column the town's southern road arrives at. */
+export const BEACH_TOWN_X = 47;
 
 export function createTown(seed: number): World {
   const w = TOWN_W;
@@ -47,6 +49,8 @@ export function createTown(seed: number): World {
   rect(18, 25, 18, 31, 'path');
   rect(29, 25, 29, 31, 'path');
   rect(35, 22, 36, 25, 'path');
+  // Southern road to the beach.
+  rect(12, 24, 13, h - 1, 'path');
 
   addStructure(world, { kind: 'store', x: 13, y: 8, w: 6, h: 3 });
   addStructure(world, { kind: 'smith', x: 28, y: 8, w: 5, h: 3 });
@@ -62,9 +66,10 @@ export function createTown(seed: number): World {
 
   world.warps.push({ x: 0, y: 15, w: 1, h: 2, to: 'farm', tx: MAP_W - 2, ty: 10, dir: 'left' });
   world.warps.push({ x: 23, y: 4, w: 2, h: 1, to: 'mine', tx: 0, ty: 0, dir: 'up' });
+  world.warps.push({ x: 12, y: h - 1, w: 2, h: 1, to: 'beach', tx: BEACH_TOWN_X, ty: 1, dir: 'down' });
 
-  for (const [x, y] of [[13, 13], [34, 13], [13, 23], [34, 23], [20, 15], [27, 15], [22, 10], [8, 16], [37, 21]]) {
-    if (world.blocked[idx(x, y)] < 0) world.objects[idx(x, y)] = makeObj('lamp');
+  for (const [x, y] of [[13, 13], [34, 13], [13, 23], [34, 23], [20, 15], [27, 15], [22, 10], [8, 16], [37, 21], [14, 30]]) {
+    if (world.blocked[idx(x, y)] < 0 && getG(x, y) !== 'path') world.objects[idx(x, y)] = makeObj('lamp');
   }
 
   const nearRoad = (x: number, y: number) => {

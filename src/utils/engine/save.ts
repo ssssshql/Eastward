@@ -1,4 +1,4 @@
-import type { Animal, Crop, Decor, Ground, Request, Stack, Stats, Structure, UpgradeId, Warp, Weather, World, WorldObject } from '../../types/game';
+import type { Animal, Crop, Decor, FishRecord, Ground, Request, Stack, Stats, Structure, UpgradeId, Warp, Weather, World, WorldObject } from '../../types/game';
 import { MAP_NAMES } from './constants';
 import { rebuildBlocked } from './world';
 
@@ -31,6 +31,7 @@ export interface SaveData {
   npcs?: {id: string;friendship: number;rewarded: number[];}[];
   animals?: Animal[];
   requests?: Request[];
+  fishLog?: Record<string, FishRecord>;
 }
 
 export function writeSave(d: SaveData): void {

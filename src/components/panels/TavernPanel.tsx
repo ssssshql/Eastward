@@ -28,6 +28,7 @@ export function TavernPanel({ money, onBuy, onClose }: TavernPanelProps) {
                 买 3
               </button>
             </ShopRow>);
+
         })}
       </ul>
     </Modal>);

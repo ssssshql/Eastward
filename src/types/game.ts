@@ -1,18 +1,20 @@
 export type Dir = 'down' | 'up' | 'left' | 'right';
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 export type Weather = 'clear' | 'rain' | 'snow';
-export type MapId = 'farm' | 'town' | 'mine' | 'interior';
+export type MapId = 'farm' | 'town' | 'forest' | 'beach' | 'mine' | 'interior';
 export type Ground = 'grass' | 'path' | 'sand' | 'water' | 'dock' | 'cobble' | 'cave' | 'wall' | 'floor';
 export type CropShape = 'root' | 'berry' | 'big' | 'flower' | 'glow';
-export type ItemKind = 'tool' | 'seed' | 'produce' | 'resource' | 'fish' | 'placeable' | 'food' | 'artisan' | 'animal';
-export type ObjKind = 'tree' | 'stump' | 'rock' | 'weed' | 'bush' | 'sprinkler' | 'lamp' | 'jar' | 'ladder' | 'torch' | 'crystal';
+export type ItemKind = 'tool' | 'seed' | 'produce' | 'resource' | 'fish' | 'placeable' | 'food' | 'artisan' | 'animal' | 'forage';
+export type ObjKind = 'tree' | 'stump' | 'rock' | 'weed' | 'bush' | 'sprinkler' | 'lamp' | 'jar' | 'ladder' | 'torch' | 'crystal' | 'forage';
 export type StructureKind = 'house' | 'bin' | 'coop' | 'store' | 'smith' | 'tavern' | 'cottage' | 'board' | 'fountain' | 'cave' | 'cart' | 'furniture';
-export type Mode = 'title' | 'play' | 'store' | 'smith' | 'tavern' | 'board' | 'inventory' | 'journal' | 'villagers' | 'fishing' | 'sleep' | 'summary' | 'dialog';
-export type PanelMode = 'inventory' | 'journal' | 'villagers';
+export type Mode = 'title' | 'play' | 'store' | 'smith' | 'tavern' | 'board' | 'inventory' | 'journal' | 'villagers' | 'map' | 'fishing' | 'sleep' | 'summary' | 'dialog';
+export type PanelMode = 'inventory' | 'journal' | 'villagers' | 'map';
 export type UpgradeId = 'hoe' | 'can' | 'axe' | 'pickaxe' | 'sword';
 export type AnimalKind = 'chicken' | 'cow';
 export type MonsterKind = 'slime' | 'bat';
 export type FurnitureUse = 'sleep' | 'store' | 'smith' | 'tavern' | 'coop' | 'note';
+export type FishBehavior = 'mixed' | 'dart' | 'smooth' | 'sinker' | 'floater';
+export type PromptIcon = 'hand' | 'talk' | 'gift' | 'door' | 'sleep' | 'look' | 'fish' | 'ship';
 
 export interface CropDef {
   id: string;
@@ -52,8 +54,42 @@ export interface FishDef {
   id: string;
   difficulty: number;
   weight: number;
+  behavior: FishBehavior;
+  maps: MapId[];
+  /** Length range in centimetres. */
+  size: [number, number];
   night?: boolean;
-  map?: MapId;
+  rain?: boolean;
+  seasons?: Season[];
+}
+
+export interface FishRecord {
+  count: number;
+  best: number;
+}
+
+export interface FishResult {
+  success: boolean;
+  size: number;
+  perfect: boolean;
+  treasure: boolean;
+}
+
+export interface RegionDef {
+  id: MapId;
+  name: string;
+  sub: string;
+  desc: string;
+  /** Placement on the overview map as percentages: left, top, width, height. */
+  box: [number, number, number, number];
+}
+
+export interface MinimapView {
+  url: string;
+  w: number;
+  h: number;
+  /** Player position in tile units, or null when the player is elsewhere. */
+  marker: [number, number] | null;
 }
 
 export interface RecipeDef {
@@ -105,6 +141,7 @@ export interface Stats {
   requests: number;
   processed: number;
   ore: number;
+  forage: number;
 }
 
 export interface GoalDef {
@@ -228,6 +265,8 @@ export interface World {
   style?: InteriorStyle;
   spawn?: [number, number];
   wake?: [number, number];
+  /** Bubbling fishing spots, rerolled each morning. */
+  spots?: [number, number][];
 }
 
 export interface PlayerAction {
@@ -361,6 +400,7 @@ export interface Pickup {
 export interface Prompt {
   key: string;
   text: string;
+  icon?: PromptIcon;
 }
 
 export interface Banner {
@@ -384,6 +424,7 @@ export interface UiSnapshot {
   maxHp: number;
   mapId: MapId;
   mapName: string;
+  region: MapId;
   floor: number;
   inventory: (Stack | null)[];
   selected: number;
@@ -396,6 +437,7 @@ export interface UiSnapshot {
   goalsDone: string[];
   summary: DaySummary | null;
   fishingFish: string | null;
+  fishLog: Record<string, FishRecord>;
   upgrades: Record<UpgradeId, number>;
   hasSave: boolean;
   dialog: Dialog | null;

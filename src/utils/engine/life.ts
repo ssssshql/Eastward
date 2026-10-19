@@ -271,7 +271,7 @@ function updateCritters(g: FarmGame, dt: number, night: number): void {
       if (inBounds(w, tx, ty)) {
         const far = Math.hypot(x - pl.x, y - pl.y) > 60;
         if (isWater(w, tx, ty)) {
-          if (L.critters.filter((c) => c.kind === 'duck').length < 3 && season !== 'winter') L.critters.push({ kind: 'duck', x, y, z: 0, vx: (Math.random() - 0.5) * 8, vy: 0, t: Math.random() * 9, flee: false, color: '#ffffff', dir: 1 });
+          if (L.critters.filter((c) => c.kind === 'duck').length < 3 && season !== 'winter' && w.id !== 'beach') L.critters.push({ kind: 'duck', x, y, z: 0, vx: (Math.random() - 0.5) * 8, vy: 0, t: Math.random() * 9, flee: false, color: '#ffffff', dir: 1 });
         } else if (!isSolid(w, tx, ty) && far) {
           const fly = (season === 'spring' || season === 'summer') && Math.random() < 0.45;
           if (fly) L.critters.push({ kind: 'butterfly', x, y, z: 8, vx: 0, vy: 0, t: Math.random() * 9, flee: false, color: BUTTERFLY_COLORS[Math.floor(Math.random() * BUTTERFLY_COLORS.length)], dir: 1 });else

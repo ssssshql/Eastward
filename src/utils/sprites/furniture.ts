@@ -36,7 +36,6 @@ export function done(p: Px, lights: FurnitureLight[] = [], night: Px | null = nu
   return { img: p.canvas(), night: night ? night.canvas() : null, lights };
 }
 
-/** Horizontal planks lit from above. */
 export function planks(p: Px, x0: number, y0: number, w: number, h: number, pal: RGB[], base = 2.6): void {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {

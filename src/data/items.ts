@@ -6,7 +6,7 @@ export const items: ItemDef[] = [
 { id: 'axe', name: '斧头', kind: 'tool', sell: 0, desc: '砍伐树木、树桩与灌木。' },
 { id: 'pickaxe', name: '镐子', kind: 'tool', sell: 0, desc: '敲碎石头和矿石，也能回收设施。' },
 { id: 'sword', name: '旅人之剑', kind: 'tool', sell: 0, desc: '在矿洞里保护自己。' },
-{ id: 'rod', name: '鱼竿', kind: 'tool', sell: 0, desc: '面朝水面抛竿，咬钩时再按一次。' },
+{ id: 'rod', name: '鱼竿', kind: 'tool', sell: 0, desc: '面朝水面按住蓄力，松开抛竿；浮漂下沉时再按一次收线。' },
 
 { id: 'seed_turnip', name: '珍珠芜菁种子', kind: 'seed', sell: 10, buy: 20, cropId: 'turnip', desc: '最容易上手的作物。' },
 { id: 'seed_pepper', name: '赤焰椒种子', kind: 'seed', sell: 30, buy: 60, cropId: 'pepper', desc: '成熟后每 2 天可再采摘。' },
@@ -23,6 +23,13 @@ export const items: ItemDef[] = [
 { id: 'moonbloom', name: '月光花', kind: 'produce', sell: 380, desc: '夜里会发出柔和的微光。' },
 { id: 'amber', name: '琥珀南瓜', kind: 'produce', sell: 290, desc: '沉甸甸的金色南瓜。' },
 { id: 'melon', name: '星纹瓜', kind: 'produce', sell: 420, desc: '瓜皮上的纹路像一片星空。' },
+
+{ id: 'forage_herb', name: '野葱', kind: 'forage', sell: 25, desc: '春天雾林里冒出的嫩葱，香气很冲。' },
+{ id: 'forage_mushroom', name: '雾林菇', kind: 'forage', sell: 45, desc: '长在潮湿树根旁的褐色蘑菇。' },
+{ id: 'forage_berry', name: '山莓', kind: 'forage', sell: 30, desc: '酸甜多汁，夏秋时节挂满灌木。' },
+{ id: 'forage_holly', name: '冬青果', kind: 'forage', sell: 40, desc: '雪地里少见的一抹红。' },
+{ id: 'forage_shell', name: '螺贝', kind: 'forage', sell: 30, desc: '退潮后留在沙滩上的螺旋贝壳。' },
+{ id: 'forage_coral', name: '红珊瑚', kind: 'forage', sell: 70, desc: '被浪推上岸的珊瑚枝。' },
 
 { id: 'egg', name: '鸡蛋', kind: 'animal', sell: 50, desc: '还带着一点温度。' },
 { id: 'milk', name: '牛奶', kind: 'animal', sell: 125, desc: '新鲜醇厚的牛奶。' },
@@ -55,6 +62,12 @@ export const items: ItemDef[] = [
 { id: 'fish_koi', name: '晚霞锦鲤', kind: 'fish', sell: 150, desc: '雨天更活跃。', color: '#ff7a3d' },
 { id: 'fish_lantern', name: '灯笼鱼', kind: 'fish', sell: 240, desc: '只在夜里出没。', color: '#5a6fe4' },
 { id: 'fish_carp', name: '镇湖金鲤', kind: 'fish', sell: 180, desc: '只在小镇的湖里能钓到。', color: '#ffc23a' },
+{ id: 'fish_trout', name: '雾溪鳟', kind: 'fish', sell: 90, desc: '雾林池塘里的花斑鳟鱼。', color: '#d08a6a' },
+{ id: 'fish_catfish', name: '林泽鲶', kind: 'fish', sell: 210, desc: '雨天才会从池底浮上来的大家伙。', color: '#7a7450' },
+{ id: 'fish_sardine', name: '沙丁鱼', kind: 'fish', sell: 40, desc: '成群结队的银色小海鱼。', color: '#9ab8d8' },
+{ id: 'fish_puffer', name: '刺河豚', kind: 'fish', sell: 190, desc: '一受惊就鼓成刺球。夏秋出没。', color: '#e8d070' },
+{ id: 'fish_tuna', name: '蓝鳍金枪鱼', kind: 'fish', sell: 170, desc: '力气极大的远洋鱼。夏冬出没。', color: '#3a5a92' },
+{ id: 'fish_eel', name: '月影鳗', kind: 'fish', sell: 230, desc: '夜里才离开礁石的细长海鱼。', color: '#5a5a7a' },
 
 { id: 'sprinkler', name: '洒水器', kind: 'placeable', sell: 80, desc: '每天清晨浇灌周围 8 格。' },
 { id: 'lamp', name: '庭院灯', kind: 'placeable', sell: 30, buy: 150, desc: '入夜后点亮一圈暖光。' },

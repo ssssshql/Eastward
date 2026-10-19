@@ -6,6 +6,7 @@ import { getItem } from '../../utils/items';
 import { Modal } from '../Modal';
 import { ItemIcon } from '../ItemIcon';
 import { Coins } from '../Coins';
+import { btnPrimary } from './ShopRow';
 
 interface InventoryPanelProps {
   inventory: (Stack | null)[];
@@ -16,7 +17,7 @@ interface InventoryPanelProps {
   onClose: () => void;
 }
 
-const KIND_LABEL: Record<string, string> = { tool: '工具', seed: '种子', produce: '作物', resource: '材料', fish: '鱼', placeable: '设施', food: '料理', artisan: '加工品', animal: '畜产品' };
+const KIND_LABEL: Record<string, string> = { tool: '工具', seed: '种子', produce: '作物', resource: '材料', fish: '鱼', placeable: '设施', food: '料理', artisan: '加工品', animal: '畜产品', forage: '野生物产' };
 
 export function InventoryPanel({ inventory, selected, onSwap, onCraft, onEat, onClose }: InventoryPanelProps) {
   const [picked, setPicked] = useState<number | null>(null);
@@ -36,7 +37,7 @@ export function InventoryPanel({ inventory, selected, onSwap, onCraft, onEat, on
   };
 
   return (
-    <Modal title="背包" subtitle="点击两个格子交换位置 · 第一行就是快捷栏" onClose={onClose} className="w-[760px]">
+    <Modal title="背包" subtitle="点击两个格子交换位置 · 第一行就是快捷栏" onClose={onClose} className="w-[780px]">
       <div className="px-7 pt-5">
         <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-12">
           {inventory.map((s, i) =>
@@ -47,22 +48,23 @@ export function InventoryPanel({ inventory, selected, onSwap, onCraft, onEat, on
             onMouseEnter={() => setFocus(i)}
             onMouseLeave={() => setFocus(null)}
             aria-label={s ? `${getItem(s.id).name} ×${s.qty}` : '空格位'}
-            className={`slot relative flex aspect-square items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-amber ${i < HOTBAR_SIZE ? '' : 'slot-dim'} ${
-            picked === i ? 'outline outline-[3px] outline-amber' : i === selected ? 'outline outline-2 outline-berry' : ''}`}>
+            className={`relative flex aspect-square items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-amber ${picked === i || i === selected ? 'slot-lit' : 'slot'} ${i < HOTBAR_SIZE ? '' : 'slot-dim'}`}>
               {s && <ItemIcon id={s.id} size={32} />}
-              {s && s.qty > 1 && <span className="absolute bottom-0 right-1 font-pixel text-[12px] font-bold tabular-nums text-cream [text-shadow:1px_1px_0_#3a2012,-1px_-1px_0_#3a2012,1px_-1px_0_#3a2012,-1px_1px_0_#3a2012]">{s.qty}</span>}
+              {s && s.qty > 1 && <span className="absolute bottom-[-2px] right-0 font-pixel text-[12px] font-bold tabular-nums text-cream [text-shadow:1px_1px_0_#3a2012,-1px_-1px_0_#3a2012,1px_-1px_0_#3a2012,-1px_1px_0_#3a2012]">{s.qty}</span>}
             </button>
           )}
         </div>
       </div>
       <div className="grid gap-6 px-7 pb-7 pt-5 sm:grid-cols-[1fr_1.25fr]">
-        <div className="rounded-xl bg-ink-2/70 p-4">
+        <div className="rounded-md bg-ink-2/70 p-4">
           {detail && detailDef ?
           <>
               <div className="flex items-center gap-3">
-                <ItemIcon id={detail.id} size={48} />
+                <div className="slot flex h-14 w-14 items-center justify-center">
+                  <ItemIcon id={detail.id} size={40} />
+                </div>
                 <div>
-                  <h3 className="font-display text-lg">{detailDef.name}</h3>
+                  <h3 className="font-display text-lg font-black">{detailDef.name}</h3>
                   <span className="text-xs text-cream-dim">{KIND_LABEL[detailDef.kind]}</span>
                 </div>
               </div>
@@ -70,7 +72,7 @@ export function InventoryPanel({ inventory, selected, onSwap, onCraft, onEat, on
               <div className="mt-4 flex items-center justify-between">
                 {detailDef.sell > 0 && detailDef.kind !== 'tool' ? <Coins value={detailDef.sell} className="text-sm text-amber" /> : <span />}
                 {detailDef.kind === 'food' &&
-              <button type="button" onClick={() => onEat(detailSlot)} className="rounded-lg bg-sage px-3 py-1.5 text-sm font-medium text-ink transition-colors duration-150 hover:bg-sage-deep">
+              <button type="button" onClick={() => onEat(detailSlot)} className={btnPrimary}>
                     食用
                   </button>
               }
@@ -80,7 +82,7 @@ export function InventoryPanel({ inventory, selected, onSwap, onCraft, onEat, on
           }
         </div>
         <div>
-          <h3 className="font-display text-lg">工作台</h3>
+          <h3 className="font-display text-lg font-black">工作台</h3>
           <ul className="mt-2 divide-y divide-cream/10">
             {recipes.map((r) => {
               const ok = r.inputs.every((s) => count(s.id) >= s.qty);
@@ -97,17 +99,15 @@ export function InventoryPanel({ inventory, selected, onSwap, onCraft, onEat, on
                             <ItemIcon id={s.id} size={16} />
                             {have}/{s.qty}
                           </span>);
+
                       })}
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    disabled={!ok}
-                    onClick={() => onCraft(r.id)}
-                    className="rounded-lg bg-amber px-3 py-1.5 text-sm font-medium text-ink transition-colors duration-150 hover:bg-amber-deep disabled:cursor-not-allowed disabled:bg-cream/10 disabled:text-cream-dim">
+                  <button type="button" disabled={!ok} onClick={() => onCraft(r.id)} className={btnPrimary}>
                     制作
                   </button>
                 </li>);
+
             })}
           </ul>
         </div>

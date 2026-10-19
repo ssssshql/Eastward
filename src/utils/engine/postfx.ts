@@ -8,6 +8,10 @@ void main() {
   gl_Position = vec4(a, 0.0, 1.0);
 }`;
 
+/*
+ * Calm, stable grade. Everything here is either static per pixel or anchored to world space and drifts
+ * very slowly — no per-frame film grain, no sweeping light rays — so the picture never "boils".
+ */
 const FRAG = `
 precision mediump float;
 varying vec2 v;
@@ -15,9 +19,7 @@ uniform sampler2D uScene;
 uniform sampler2D uLight;
 uniform vec2 uView;
 uniform vec2 uSceneSize;
-uniform vec2 uFrac;
 uniform vec2 uCam;
-uniform vec2 uSun;
 uniform float uTime;
 uniform float uNight;
 uniform float uRain;
@@ -35,7 +37,7 @@ float n(vec2 p) {
 }
 float fbm(vec2 p) {
   float s = 0.0; float a = 0.5;
-  for (int i = 0; i < 4; i++) { s += a * n(p); p *= 2.03; a *= 0.5; }
+  for (int i = 0; i < 3; i++) { s += a * n(p); p *= 2.03; a *= 0.5; }
   return s;
 }
 vec3 litAt(vec2 tuv) {
@@ -47,8 +49,8 @@ vec3 aces(vec3 x) {
   return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
 }
 void main() {
-  vec2 px = v * uView + uFrac;
-  vec2 tuv = px / uSceneSize;
+  vec2 px = v * uView;
+  vec2 tuv = (floor(px) + 0.5) / uSceneSize;
   vec2 texel = 1.0 / uSceneSize;
   vec3 col = litAt(tuv);
 
@@ -60,39 +62,33 @@ void main() {
     vec3 a = litAt(tuv + o * 2.0);
     vec3 b = litAt(tuv + o * 5.0);
     blur += a * 0.6 + b * 0.4;
-    bloom += max(a - 0.72, 0.0) * 0.8 + max(b - 0.68, 0.0);
+    bloom += max(a - 0.74, 0.0) * 0.8 + max(b - 0.7, 0.0);
   }
   blur /= 8.0;
   float dof = smoothstep(0.3, 0.56, abs(v.y - 0.5)) * uDof;
   col = mix(col, blur, dof * 0.5);
-  col += bloom * (0.1 + uNight * 0.08);
+  col += bloom * (0.08 + uNight * 0.08);
 
-  vec2 world = uCam + px;
-  float cl = fbm(world * 0.006 + vec2(uTime * 0.016, uTime * 0.006));
-  float shade = smoothstep(0.5, 0.72, cl) * (1.0 - uNight) * (0.2 - uRain * 0.1) * uOutdoor;
+  // Very slow world-anchored cloud shade (moves with the ground, not the screen).
+  vec2 world = uCam + floor(px);
+  float cl = fbm(world * 0.005 + vec2(uTime * 0.006, uTime * 0.002));
+  float shade = smoothstep(0.55, 0.75, cl) * (1.0 - uNight) * (0.14 - uRain * 0.08) * uOutdoor;
   col *= 1.0 - shade;
 
-  vec2 rp = uCam * 0.55 + px;
-  vec2 dir = normalize(vec2(-uSun.x * 0.6 + 0.25, 1.0));
-  float along = dot(rp, vec2(dir.y, -dir.x));
-  float rays = pow(0.5 + 0.5 * sin(along * 0.05 + fbm(vec2(along * 0.01, uTime * 0.05)) * 6.0), 5.0);
-  rays *= smoothstep(1.05, 0.0, v.y) * (0.55 + 0.45 * fbm(rp * 0.01 + uTime * 0.03));
-  float rayAmt = (0.05 + uGolden * 0.16) * (1.0 - uNight) * (1.0 - uRain * 0.8) * uOutdoor * (1.0 - shade * 3.0);
-  col += vec3(1.0, 0.8, 0.52) * rays * rayAmt;
+  // Static golden-hour warmth from the top of the frame.
+  col += vec3(1.0, 0.78, 0.5) * uGolden * 0.07 * (1.0 - v.y) * (1.0 - uNight) * uOutdoor * (1.0 - uRain);
+  col = mix(col, vec3(0.62, 0.72, 0.86) * uAmbient, (1.0 - v.y) * 0.04 * uOutdoor * (1.0 - uNight));
 
-  col = mix(col, vec3(0.62, 0.72, 0.86) * uAmbient, (1.0 - v.y) * 0.05 * uOutdoor * (1.0 - uNight));
-
-  col *= 1.08;
+  col *= 1.06;
   col = aces(col);
   float l = dot(col, vec3(0.299, 0.587, 0.114));
   col += vec3(-0.03, 0.01, 0.05) * (1.0 - l) * (1.0 - l) + vec3(0.05, 0.02, -0.03) * l * l;
-  col = mix(vec3(l), col, 1.22 - uRain * 0.3);
-  col = mix(col, col * col * (3.0 - 2.0 * col), 0.25);
+  col = mix(vec3(l), col, 1.18 - uRain * 0.3);
+  col = mix(col, col * col * (3.0 - 2.0 * col), 0.2);
 
   vec2 d = v - 0.5;
   float r2 = dot(d, d);
-  col *= 1.0 - r2 * 0.55;
-  col += (h(gl_FragCoord.xy + fract(uTime) * 91.0) - 0.5) * 0.012;
+  col *= 1.0 - r2 * 0.45;
   col = mix(col, vec3(0.55, 0.02, 0.04), uHurt * smoothstep(0.08, 0.5, r2) * 0.8);
   col *= 1.0 - uFade;
   gl_FragColor = vec4(col, 1.0);
@@ -101,12 +97,8 @@ void main() {
 export interface FxUniforms {
   viewW: number;
   viewH: number;
-  fracX: number;
-  fracY: number;
   camX: number;
   camY: number;
-  sunX: number;
-  sunY: number;
   time: number;
   night: number;
   rain: number;
@@ -118,7 +110,7 @@ export interface FxUniforms {
   ambient: V3;
 }
 
-const UNIFORMS = ['uScene', 'uLight', 'uView', 'uSceneSize', 'uFrac', 'uCam', 'uSun', 'uTime', 'uNight', 'uRain', 'uGolden', 'uOutdoor', 'uHurt', 'uFade', 'uDof', 'uAmbient'];
+const UNIFORMS = ['uScene', 'uLight', 'uView', 'uSceneSize', 'uCam', 'uTime', 'uNight', 'uRain', 'uGolden', 'uOutdoor', 'uHurt', 'uFade', 'uDof', 'uAmbient'];
 
 function compile(gl: WebGLRenderingContext, type: number, src: string): WebGLShader {
   const s = gl.createShader(type);
@@ -140,7 +132,7 @@ function makeTex(gl: WebGLRenderingContext, filter: number): WebGLTexture {
   return t;
 }
 
-/** Cinematic post pass: lighting, bloom, soft tilt-shift, god rays, Eastward-style warm/teal grade. */
+/** Post pass: lighting, soft bloom, optional tilt-shift, Eastward-style warm/teal grade. */
 export class PostFX {
   private gl: WebGLRenderingContext;
   private tScene: WebGLTexture;
@@ -191,9 +183,7 @@ export class PostFX {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, light);
     gl.uniform2f(this.loc.uView, u.viewW, u.viewH);
     gl.uniform2f(this.loc.uSceneSize, scene.width, scene.height);
-    gl.uniform2f(this.loc.uFrac, u.fracX, u.fracY);
     gl.uniform2f(this.loc.uCam, u.camX, u.camY);
-    gl.uniform2f(this.loc.uSun, u.sunX, u.sunY);
     gl.uniform1f(this.loc.uTime, u.time);
     gl.uniform1f(this.loc.uNight, u.night);
     gl.uniform1f(this.loc.uRain, u.rain);

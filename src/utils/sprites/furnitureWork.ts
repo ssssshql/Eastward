@@ -43,7 +43,7 @@ function counter(tiles: number, goods: Goods): FurnitureSprite {
   } else if (goods === 'smith') {
     for (let i = 0; i < 3; i++) {
       const col = ramp(['#f08a4a', '#c8d4e2', '#ffcf3a'][i], 4, 0.55, 0.5);
-      for (let y = 5; y <= 8; y++) for (let x = 4 + i * 9 + (8 - y); x <= 10 + i * 9 - (8 - y) * 0; x++) p.set(x, y, col[y === 5 ? 3 : 2]);
+      for (let y = 5; y <= 8; y++) for (let x = 4 + i * 9 + (8 - y); x <= 10 + i * 9; x++) p.set(x, y, col[y === 5 ? 3 : 2]);
     }
     p.line(w - 18, 7, w - 6, 3, IRON[3]);
     p.line(w - 18, 8, w - 6, 5, IRON[1]);

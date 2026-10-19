@@ -18,7 +18,7 @@ export function PickupFeed({ pickups }: {pickups: Pickup[];}) {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: -8 }}
           transition={{ duration: 0.2, ease: EASE }}
-          className="glass flex items-center gap-2 rounded-xl py-1 pl-1.5 pr-3 text-sm">
+          className="glass flex items-center gap-2 py-1 pl-1.5 pr-3 text-sm">
             <ItemIcon id={p.id} size={24} />
             <span className="font-medium text-sage">+{p.qty}</span>
             <span className="text-cream">{getItem(p.id).name}</span>
@@ -30,9 +30,9 @@ export function PickupFeed({ pickups }: {pickups: Pickup[];}) {
 }
 
 const TONE: Record<Toast['tone'], string> = {
-  info: 'border-cream/15',
-  good: 'border-sage/50',
-  warn: 'border-berry/60'
+  info: 'text-cream',
+  good: 'text-[#c8ffb0]',
+  warn: 'text-[#ffb0a0]'
 };
 
 export function ToastStack({ toasts }: {toasts: Toast[];}) {
@@ -47,7 +47,7 @@ export function ToastStack({ toasts }: {toasts: Toast[];}) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.2, ease: EASE }}
-          className={`glass max-w-[92vw] text-center sm:whitespace-nowrap rounded-full border px-4 py-1.5 text-sm text-cream ${TONE[t.tone]}`}>
+          className={`glass max-w-[92vw] px-4 py-1.5 text-center text-sm sm:whitespace-nowrap ${TONE[t.tone]}`}>
             {t.text}
           </motion.li>
         )}

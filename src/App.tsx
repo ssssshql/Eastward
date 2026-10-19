@@ -5,6 +5,6 @@ interface AppProps {
   tiltShiftDepthOfField?: boolean;
 }
 
-export function App({ tiltShiftDepthOfField = true }: AppProps) {
+export function App({ tiltShiftDepthOfField = false }: AppProps) {
   return <GameScreen depthOfField={tiltShiftDepthOfField} />;
 }

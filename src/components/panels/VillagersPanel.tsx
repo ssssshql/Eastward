@@ -23,9 +23,11 @@ export function VillagersPanel({ snap, onClose }: VillagersPanelProps) {
           const hearts = Math.min(MAX_HEARTS, Math.floor(f / HEART));
           const partial = f % HEART / HEART;
           return (
-            <li key={n.id} className="flex gap-4 rounded-xl bg-ink-2/80 p-4">
-              <img src={getPortraitUrl(n.id)} alt="" className="pixelated h-[84px] w-[60px] shrink-0" />
-              <div className="min-w-0 flex-1">
+            <li key={n.id} className="flex gap-4 rounded-md bg-ink-2/80 p-4">
+              <div className="slot flex h-[96px] w-[68px] shrink-0 items-center justify-center">
+                <img src={getPortraitUrl(n.id)} alt="" className="pixelated h-[84px] w-[60px]" />
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col">
                 <div className="flex items-baseline justify-between gap-2">
                   <h3 className="text-lg font-black">{n.name}</h3>
                   <span className="text-xs text-cream-dim">{n.title}</span>
@@ -36,7 +38,7 @@ export function VillagersPanel({ snap, onClose }: VillagersPanelProps) {
                   )}
                 </div>
                 <p className="mt-2 text-xs leading-relaxed text-cream-dim">{n.bio}</p>
-                <div className="mt-2 flex items-center gap-1.5 text-xs text-cream-dim">
+                <div className="mt-auto flex items-center gap-1.5 pt-2 text-xs text-cream-dim">
                   <span>最爱</span>
                   {n.loves.map((id) =>
                   <span key={id} title={getItem(id).name}>
@@ -47,6 +49,7 @@ export function VillagersPanel({ snap, onClose }: VillagersPanelProps) {
                 </div>
               </div>
             </li>);
+
         })}
       </ul>
     </Modal>);

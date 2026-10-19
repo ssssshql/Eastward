@@ -26,7 +26,7 @@ export function BoardPanel({ snap, onDeliver, onClose }: BoardPanelProps) {
           const have = count(r.item);
           const ok = have >= r.qty;
           return (
-            <li key={r.id} className="flex items-center gap-4 rounded-xl bg-ink-2/80 p-4">
+            <li key={r.id} className="flex items-center gap-4 rounded-md bg-ink-2/80 p-4">
                 <img src={getPortraitUrl(r.npc)} alt="" className="pixelated h-14 w-10 shrink-0 object-cover object-top" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm">

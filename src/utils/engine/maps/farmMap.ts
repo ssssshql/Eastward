@@ -1,7 +1,10 @@
 import type { Ground, World, WorldObject } from '../../../types/game';
-import { FARM_RECT, MAP_H, MAP_NAMES, MAP_W } from '../constants';
+import { BEACH_H, FARM_RECT, FOREST_W, MAP_H, MAP_NAMES, MAP_W } from '../constants';
 import { addStructure, emptyWorld, inBounds, inFarm, makeObj, scatterDecor } from '../world';
 import { rng } from '../../noise';
+
+/** Column of the southern road that leads down to the beach. */
+export const FARM_SOUTH_X = 33;
 
 export function createFarm(seed: number): World {
   const w = MAP_W;
@@ -37,17 +40,23 @@ export function createFarm(seed: number): World {
       if (near > 0 && r() < 0.55 + near * 0.06) setG(x, y, 'sand');
     }
   }
-  for (let x = 2; x < w; x++) for (const y of [10, 11]) setG(x, y, getG(x, y) === 'water' ? 'dock' : 'path');
+  // Main east–west road: forest on the west edge, town across the river bridge on the east.
+  for (let x = 0; x < w; x++) for (const y of [10, 11]) setG(x, y, getG(x, y) === 'water' ? 'dock' : 'path');
   for (let y = 7; y <= 9; y++) {
     setG(7, y, 'path');
     setG(18, y, 'path');
   }
   setG(18, 12, 'path');
+  // Southern road down to the beach, skirting the east side of the fields.
+  for (let y = 12; y < h; y++) for (const x of [FARM_SOUTH_X, FARM_SOUTH_X + 1]) setG(x, y, getG(x, y) === 'water' ? 'dock' : 'path');
 
   addStructure(world, { kind: 'house', x: 5, y: 4, w: 5, h: 3 });
   addStructure(world, { kind: 'coop', x: 16, y: 4, w: 4, h: 3 });
   addStructure(world, { kind: 'bin', x: 10, y: 6, w: 2, h: 1 });
   world.warps.push({ x: w - 1, y: 10, w: 1, h: 2, to: 'town', tx: 1, ty: 15, dir: 'right' });
+  world.warps.push({ x: 0, y: 10, w: 1, h: 2, to: 'forest', tx: FOREST_W - 2, ty: 10, dir: 'left' });
+  world.warps.push({ x: FARM_SOUTH_X, y: h - 1, w: 2, h: 1, to: 'beach', tx: FARM_SOUTH_X, ty: 1, dir: 'down' });
+  void BEACH_H;
 
   const free = (x: number, y: number) => inBounds(world, x, y) && world.blocked[idx(x, y)] < 0 && !world.objects[idx(x, y)];
   const put = (x: number, y: number, o: WorldObject) => {
@@ -56,6 +65,7 @@ export function createFarm(seed: number): World {
   put(9, 9, makeObj('lamp'));
   put(22, 9, makeObj('lamp'));
   put(13, 9, makeObj('jar'));
+  put(FARM_SOUTH_X + 2, 30, makeObj('lamp'));
 
   for (let y = FARM_RECT.y; y < FARM_RECT.y + FARM_RECT.h; y++) {
     for (let x = FARM_RECT.x; x < FARM_RECT.x + FARM_RECT.w; x++) {

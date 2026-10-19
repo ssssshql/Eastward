@@ -8,17 +8,16 @@ import { getIconCanvas } from '../sprites/iconCache';
 import { getItem } from '../items';
 
 export function drawTarget(ctx: CanvasRenderingContext2D, g: FarmGame): void {
-  if (g.mode !== 'play' || !g.target || g.fishing || g.player.action || g.world.indoor) return;
+  if (g.mode !== 'play' || !g.target || g.fishing || g.casting || g.player.action || g.world.indoor) return;
   const st = g.inv[g.selected];
-  if (st && st.id === 'sword') return;
+  if (st && (st.id === 'sword' || st.id === 'rod')) return;
   const tiles = lineTiles(g, g.target.x, g.target.y, st ? st.id : '');
-  const a = 0.6 + Math.sin(g.elapsed * 5) * 0.15;
   for (const { x, y } of tiles) {
     const px = x * TILE;
     const py = y * TILE;
-    ctx.fillStyle = 'rgba(255,240,200,0.1)';
+    ctx.fillStyle = 'rgba(255,240,200,0.12)';
     ctx.fillRect(px, py, TILE, TILE);
-    ctx.fillStyle = `rgba(255,244,214,${a})`;
+    ctx.fillStyle = 'rgba(255,244,214,0.75)';
     ctx.fillRect(px, py, 3, 1);
     ctx.fillRect(px, py, 1, 3);
     ctx.fillRect(px + 13, py, 3, 1);
@@ -40,7 +39,7 @@ export function drawPlayer(ctx: CanvasRenderingContext2D, g: FarmGame, bank: Spr
   const frames = bank.shared.player[pl.dir];
   const x = Math.round(pl.x);
   const y = Math.round(pl.y);
-  const holding = !!pl.action || !!g.fishing;
+  const holding = !!pl.action || !!g.fishing || !!g.casting;
   const behind = holding && pl.dir === 'up';
   if (pl.invuln > 0 && Math.floor(g.elapsed * 20) % 2 === 0) ctx.globalAlpha = 0.45;
   if (behind) drawTool(ctx, g, x, y);
@@ -72,7 +71,8 @@ function drawTool(ctx: CanvasRenderingContext2D, g: FarmGame, x: number, y: numb
   let ang = pl.dir === 'down' || pl.dir === 'up' ? -1.6 + e * 2.2 : -2.0 + e * 2.4;
   if (id === 'sword') ang = -2.3 + e * 3.0;
   if (id === 'can') ang = -0.4 + e * 0.9;
-  if (id === 'rod' && !act) ang = 0.1;
+  // Rod raised back over the shoulder while charging, resting forward while the line is out.
+  if (id === 'rod' && !act) ang = g.casting ? -1.9 - g.casting.power * 0.5 : 0.1;
   ctx.save();
   ctx.translate(hx, hy);
   if (flip) ctx.scale(-1, 1);
@@ -88,6 +88,29 @@ function drawTool(ctx: CanvasRenderingContext2D, g: FarmGame, x: number, y: numb
   ctx.restore();
 }
 
+/** Stardew-style vertical casting meter beside the player: red → amber → green as power builds. */
+export function drawCastMeter(ctx: CanvasRenderingContext2D, g: FarmGame): void {
+  const c = g.casting;
+  if (!c) return;
+  const pl = g.player;
+  const x = Math.round(pl.x) + (pl.dir === 'left' ? 10 : -16);
+  const y = Math.round(pl.y) - 34;
+  const H = 24;
+  ctx.fillStyle = '#140b07';
+  ctx.fillRect(x - 1, y - 1, 7, H + 2);
+  ctx.fillStyle = '#9a5f34';
+  ctx.fillRect(x, y, 5, H);
+  ctx.fillStyle = '#2c1d16';
+  ctx.fillRect(x + 1, y + 1, 3, H - 2);
+  const fill = Math.round((H - 2) * c.power);
+  ctx.fillStyle = c.power < 0.34 ? '#ff5a5a' : c.power < 0.72 ? '#ffb547' : '#8fe0a0';
+  ctx.fillRect(x + 1, y + H - 1 - fill, 3, fill);
+  if (c.power > 0.96) {
+    ctx.fillStyle = '#fff6c8';
+    ctx.fillRect(x + 1, y + 1, 3, 1);
+  }
+}
+
 export function drawFishing(ctx: CanvasRenderingContext2D, g: FarmGame): void {
   const f = g.fishing;
   if (!f) return;
@@ -97,7 +120,7 @@ export function drawFishing(ctx: CanvasRenderingContext2D, g: FarmGame): void {
   const sx = Math.round(pl.x) + ox;
   const sy = Math.round(pl.y) + oy;
   const bite = f.phase === 'bite';
-  const bob = bite ? 1 + Math.round(Math.sin(g.elapsed * 30)) : Math.round(Math.sin(g.elapsed * 3) * 0.6);
+  const bob = bite ? 2 : Math.floor(g.elapsed * 1.5) % 2;
   const bx = Math.round(f.bx);
   const by = Math.round(f.by) + bob;
   ctx.strokeStyle = 'rgba(240,236,220,0.75)';
@@ -109,11 +132,19 @@ export function drawFishing(ctx: CanvasRenderingContext2D, g: FarmGame): void {
   ctx.fillStyle = '#f4f1e8';
   ctx.fillRect(bx - 1, by - 2, 2, 1);
   ctx.fillStyle = '#ff3d3d';
-  ctx.fillRect(bx - 1, by - 1, 2, 2);
+  ctx.fillRect(bx - 1, by - 1, 2, bite ? 1 : 2);
   if (bite) {
-    ctx.fillStyle = '#fff3c4';
-    ctx.fillRect(bx, by - 12, 1, 5);
-    ctx.fillRect(bx, by - 6, 1, 1);
+    // Big "!" over the angler's head, like Stardew's bite cue.
+    const hx = Math.round(pl.x) - 2;
+    const hy = Math.round(pl.y) - 44;
+    ctx.fillStyle = '#140b07';
+    ctx.fillRect(hx - 1, hy - 1, 6, 11);
+    ctx.fillRect(hx - 1, hy + 11, 6, 5);
+    ctx.fillStyle = '#ffd23a';
+    ctx.fillRect(hx, hy, 4, 9);
+    ctx.fillRect(hx, hy + 12, 4, 3);
+    ctx.fillStyle = '#fff6c8';
+    ctx.fillRect(hx, hy, 1, 8);
   }
 }
 
@@ -151,7 +182,7 @@ export function drawParticles(ctx: CanvasRenderingContext2D, list: Particle[], t
         ctx.globalAlpha = a * 0.3;
         ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.arc(p.x, p.y - p.z, p.size, 0, Math.PI * 2);
+        ctx.arc(x, y, Math.round(p.size), 0, Math.PI * 2);
         ctx.fill();
         break;
       case 'firefly':{
@@ -170,12 +201,12 @@ export function drawParticles(ctx: CanvasRenderingContext2D, list: Particle[], t
       case 'ripple':
       case 'splash':{
           const k = 1 - p.life / p.max;
-          const r = (p.kind === 'ripple' ? 7 : 2.5) * k + 1;
+          const r = Math.round((p.kind === 'ripple' ? 7 : 2.5) * k + 1);
           ctx.globalAlpha = (1 - k) * 0.7;
           ctx.strokeStyle = '#dff6ff';
           ctx.lineWidth = 1;
           ctx.beginPath();
-          ctx.ellipse(p.x, p.y, r, r * 0.45, 0, 0, Math.PI * 2);
+          ctx.ellipse(x, Math.round(p.y) + 0.5, r, Math.max(1, Math.round(r * 0.45)), 0, 0, Math.PI * 2);
           ctx.stroke();
           break;
         }
