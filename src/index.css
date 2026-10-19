@@ -176,3 +176,9 @@ body,
 .title-shadow {
   text-shadow: 0 4px 0 #3a2012, 0 8px 30px rgba(0, 0, 0, 0.55);
 }
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

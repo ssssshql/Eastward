@@ -21,7 +21,7 @@ export function Hotbar({ inventory, selected, canWater, canMax, onSelect, compac
   return (
     <div className="flex max-w-full flex-col items-center gap-2">
       {!compact && <div className="h-5 text-sm font-medium text-cream [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">{sel ? getItem(sel.id).name : ''}</div>}
-      <nav className={`glass flex max-w-full overflow-x-auto ${compact ? 'gap-1 px-2 pb-2 pt-2.5' : 'gap-1.5 px-2.5 pb-2.5 pt-3'}`} aria-label="快捷栏">
+      <nav className={`glass no-scrollbar flex max-w-full overflow-x-auto ${compact ? 'gap-1 px-2 pb-2 pt-2' : 'gap-1.5 px-2.5 pb-2.5 pt-3'}`} aria-label="快捷栏">
         {slots.map((s, i) => {
           const active = i === selected;
           return (
@@ -32,14 +32,18 @@ export function Hotbar({ inventory, selected, canWater, canMax, onSelect, compac
               onClick={() => onSelect(i)}
               aria-label={s ? `${getItem(s.id).name}${s.qty > 1 ? ` ×${s.qty}` : ''}` : `空格位 ${i + 1}`}
               aria-pressed={active}
-              className={`slot relative flex shrink-0 items-center justify-center transition-transform duration-150 ease-out ${compact ? 'h-11 w-11' : 'h-12 w-12'} ${
-              active ? '-translate-y-1 outline outline-[3px] outline-berry' : ''}`
+              className={`slot relative flex shrink-0 items-center justify-center transition-transform duration-150 ease-out ${compact ? 'h-9 w-9' : 'h-12 w-12'} ${
+              active ? `${compact ? '-translate-y-0.5 outline-2' : '-translate-y-1 outline-[3px]'} outline outline-berry` : ''}`
               }>
               {!compact && <span className="absolute left-1 top-0 font-pixel text-[9px] text-parch-ink/50">{KEYS[i]}</span>}
-              {s && <ItemIcon id={s.id} size={compact ? 28 : 32} />}
-              {s && s.qty > 1 && <span className="absolute bottom-0 right-1 font-pixel text-[12px] font-bold tabular-nums text-cream [text-shadow:1px_1px_0_#3a2012,-1px_-1px_0_#3a2012,1px_-1px_0_#3a2012,-1px_1px_0_#3a2012]">{s.qty}</span>}
+              {s && <ItemIcon id={s.id} size={compact ? 24 : 32} />}
+              {s && s.qty > 1 &&
+              <span className={`absolute bottom-0 font-pixel font-bold tabular-nums text-cream [text-shadow:1px_1px_0_#3a2012,-1px_-1px_0_#3a2012,1px_-1px_0_#3a2012,-1px_1px_0_#3a2012] ${compact ? 'right-0.5 text-[10px] leading-none' : 'right-1 text-[12px]'}`}>
+                  {s.qty}
+                </span>
+              }
               {s?.id === 'can' &&
-              <span className="absolute bottom-1 left-2 right-2 h-[3px] overflow-hidden rounded-full bg-ink/80">
+              <span className={`absolute h-[3px] overflow-hidden rounded-full bg-ink/80 ${compact ? 'bottom-0.5 left-1.5 right-1.5' : 'bottom-1 left-2 right-2'}`}>
                   <span className="block h-full rounded-full bg-mist" style={{ width: `${canWater / canMax * 100}%` }} />
                 </span>
               }

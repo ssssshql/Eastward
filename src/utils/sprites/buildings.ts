@@ -403,6 +403,7 @@ function paintDoor(p: Px, s: Spec, L: Layout, lit: boolean, season: Season, lamp
   p.rect(lx - 1, ly + 2, 3, 4, lit ? [255, 222, 130] : [150, 170, 180]);
   if (lit) p.set(lx, ly + 3, [255, 250, 210]);
   lamps.push([lx, ly + 4]);
+  void trim;
 }
 
 function paintSign(p: Px, s: Spec, L: Layout): void {

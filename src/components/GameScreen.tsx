@@ -42,7 +42,14 @@ export function GameScreen({ depthOfField }: GameScreenProps) {
       {!snap && !error && <div className="absolute inset-0 flex items-center justify-center text-xl font-black text-cream-dim">雾气正在散去……</div>}
       {snap && mode !== 'title' && mode !== 'summary' && <Hud snap={snap} actions={actions} touch={touch} />}
       {snap && touch && mode === 'play' &&
-      <TouchControls prompt={snap.prompt} onMove={actions.touchMove} onUse={actions.touchUse} onInteract={actions.touchInteract} />
+      <TouchControls
+        prompt={snap.prompt}
+        heldItem={snap.inventory[snap.selected]?.id ?? null}
+        canWater={snap.canWater}
+        canMax={snap.canMax}
+        onMove={actions.touchMove}
+        onUse={actions.touchUse}
+        onInteract={actions.touchInteract} />
       }
       {snap && mode !== 'title' && mode !== 'summary' && <MapBanner banner={snap.banner} />}
       <AnimatePresence>
