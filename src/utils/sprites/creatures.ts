@@ -26,7 +26,7 @@ export function buildSlime(color: string): HTMLCanvasElement[] {
     p.rect(12, Math.round(cy), 1, 2, EYE);
     p.set(7, Math.round(cy), WHITE, 0.6);
     p.set(12, Math.round(cy), WHITE, 0.6);
-    p.outline(0.7);
+    p.outline(0.8);
     return p.canvas();
   });
 }
@@ -49,7 +49,7 @@ export function buildBat(): HTMLCanvasElement[] {
     p.set(13, 3, body[2]);
     p.set(10, 7, [255, 80, 90]);
     p.set(12, 7, [255, 80, 90]);
-    p.outline(0.7);
+    p.outline(0.8);
     return p.canvas();
   });
 }
@@ -74,7 +74,48 @@ export function buildChicken(): CreatureFrames {
     p.set(9, 13 + f, orange);
     p.set(6, 15 - f, orange);
     p.set(9, 14, orange);
-    p.outline(0.6);
+    p.outline(0.75);
+    return p;
+  });
+  return both(frames);
+}
+
+export function buildCat(): CreatureFrames {
+  const fur = ramp('#e8a050', 5, 0.55, 0.4);
+  const stripe = ramp('#a8602a', 4, 0.5, 0.35);
+  const frames = [0, 1].map((f) => {
+    const p = new Px(18, 14);
+    const legs = f ? [[4, 0], [6, 1], [10, 1], [12, 0]] : [[4, 1], [6, 0], [10, 0], [12, 1]];
+    for (const [lx, up] of legs) p.box(lx, 9, 2, 4 - up, fur);
+    p.ball(8.5, 8, 5.5, 3.2, fur, 0.15);
+    for (const sx of [6, 9]) p.rect(sx, 5, 1, 4, stripe[1]);
+    p.ball(14, 5.5, 3.2, 3, fur, 0.25);
+    p.set(12, 2, fur[3]);
+    p.set(13, 1, fur[3]);
+    p.set(15, 1, fur[3]);
+    p.set(16, 2, fur[2]);
+    p.set(14, 5, EYE);
+    p.set(16, 5, EYE);
+    p.set(15, 7, [255, 140, 150]);
+    for (let i = 0; i < 5; i++) p.set(3 - i * 0.6, 7 - i - (f ? 0 : i % 2), fur[i % 2 ? 2 : 1]);
+    p.outline(0.75);
+    return p;
+  });
+  return both(frames);
+}
+
+export function buildDuck(): CreatureFrames {
+  const body = ramp('#f4efe4', 5, 0.45, 0.25);
+  const head = ramp('#2f8a5a', 4, 0.55, 0.4);
+  const frames = [0, 1].map((f) => {
+    const p = new Px(12, 9);
+    p.ball(5, 6, 4.6, 2.6 + f * 0.2, body, 0.15);
+    p.ball(8.5, 3, 2, 2, head, 0.2);
+    p.set(10, 3, [255, 170, 60]);
+    p.set(11, 3, [255, 170, 60]);
+    p.set(9, 2, EYE);
+    p.rect(1, 5, 2, 1, body[1]);
+    p.outline(0.75);
     return p;
   });
   return both(frames);
@@ -104,7 +145,7 @@ export function buildCow(): CreatureFrames {
     p.set(3, 10, spot[1]);
     p.set(2, 11, spot[1]);
     p.set(2, 12, spot[2]);
-    p.outline(0.6);
+    p.outline(0.75);
     return p;
   });
   return both(frames);

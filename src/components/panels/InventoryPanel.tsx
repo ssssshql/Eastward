@@ -38,7 +38,7 @@ export function InventoryPanel({ inventory, selected, onSwap, onCraft, onEat, on
   return (
     <Modal title="背包" subtitle="点击两个格子交换位置 · 第一行就是快捷栏" onClose={onClose} className="w-[760px]">
       <div className="px-7 pt-5">
-        <div className="grid grid-cols-12 gap-1.5">
+        <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-12">
           {inventory.map((s, i) =>
           <button
             key={i}
@@ -47,17 +47,15 @@ export function InventoryPanel({ inventory, selected, onSwap, onCraft, onEat, on
             onMouseEnter={() => setFocus(i)}
             onMouseLeave={() => setFocus(null)}
             aria-label={s ? `${getItem(s.id).name} ×${s.qty}` : '空格位'}
-            className={`relative flex aspect-square items-center justify-center rounded-xl transition-[background-color,box-shadow] duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber ${
-            picked === i ? 'bg-amber/25 shadow-[0_0_0_2px_#f2b45a]' : i < HOTBAR_SIZE ? 'bg-ink-3/80 hover:bg-ink-3' : 'bg-ink-2/80 hover:bg-ink-3'} ${
-            i === selected && picked !== i ? 'shadow-[0_0_0_1px_rgba(246,236,216,0.4)]' : ''}`}>
-            
+            className={`slot relative flex aspect-square items-center justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-amber ${i < HOTBAR_SIZE ? '' : 'slot-dim'} ${
+            picked === i ? 'outline outline-[3px] outline-amber' : i === selected ? 'outline outline-2 outline-berry' : ''}`}>
               {s && <ItemIcon id={s.id} size={32} />}
-              {s && s.qty > 1 && <span className="absolute bottom-0.5 right-1 text-[11px] font-bold tabular-nums [text-shadow:0_1px_2px_#000]">{s.qty}</span>}
+              {s && s.qty > 1 && <span className="absolute bottom-0 right-1 font-pixel text-[12px] font-bold tabular-nums text-cream [text-shadow:1px_1px_0_#3a2012,-1px_-1px_0_#3a2012,1px_-1px_0_#3a2012,-1px_1px_0_#3a2012]">{s.qty}</span>}
             </button>
           )}
         </div>
       </div>
-      <div className="grid grid-cols-[1fr_1.25fr] gap-6 px-7 pb-7 pt-5">
+      <div className="grid gap-6 px-7 pb-7 pt-5 sm:grid-cols-[1fr_1.25fr]">
         <div className="rounded-xl bg-ink-2/70 p-4">
           {detail && detailDef ?
           <>
@@ -78,7 +76,6 @@ export function InventoryPanel({ inventory, selected, onSwap, onCraft, onEat, on
               }
               </div>
             </> :
-
           <p className="text-sm text-cream-dim">把鼠标移到物品上查看详情。</p>
           }
         </div>
@@ -100,7 +97,6 @@ export function InventoryPanel({ inventory, selected, onSwap, onCraft, onEat, on
                             <ItemIcon id={s.id} size={16} />
                             {have}/{s.qty}
                           </span>);
-
                       })}
                     </div>
                   </div>
@@ -109,11 +105,9 @@ export function InventoryPanel({ inventory, selected, onSwap, onCraft, onEat, on
                     disabled={!ok}
                     onClick={() => onCraft(r.id)}
                     className="rounded-lg bg-amber px-3 py-1.5 text-sm font-medium text-ink transition-colors duration-150 hover:bg-amber-deep disabled:cursor-not-allowed disabled:bg-cream/10 disabled:text-cream-dim">
-                    
                     制作
                   </button>
                 </li>);
-
             })}
           </ul>
         </div>

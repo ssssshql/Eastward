@@ -22,15 +22,7 @@ export function StorePanel({ snap, onBuy, onBuyAnimal, onClose }: StorePanelProp
   const list = tab === 'seeds' ? storeSeeds : storeGoods;
   return (
     <Modal title="薇拉的杂货铺" subtitle="“种子都是从山那边带来的，好好待它们。”" onClose={onClose} className="w-[700px]" aside={<Coins value={money} className="text-xl font-black text-amber" />}>
-      <Tabs<Tab>
-        tabs={[
-        { id: 'seeds', label: '种子' },
-        { id: 'goods', label: '杂货' },
-        { id: 'animals', label: '动物' }]
-        }
-        value={tab}
-        onChange={setTab} />
-      
+      <Tabs<Tab> tabs={[{ id: 'seeds', label: '种子' }, { id: 'goods', label: '杂货' }, { id: 'animals', label: '动物' }]} value={tab} onChange={setTab} />
       <ul className="divide-y divide-cream/10 px-7 py-3">
         {tab !== 'animals' &&
         list.map((id) => {
@@ -48,7 +40,6 @@ export function StorePanel({ snap, onBuy, onBuyAnimal, onClose }: StorePanelProp
                   买 5
                 </button>
               </ShopRow>);
-
         })}
         {tab === 'animals' &&
         animalOffers.map((o) => {
@@ -61,7 +52,6 @@ export function StorePanel({ snap, onBuy, onBuyAnimal, onClose }: StorePanelProp
                   {full ? '已满' : '购买'}
                 </button>
               </ShopRow>);
-
         })}
       </ul>
     </Modal>);

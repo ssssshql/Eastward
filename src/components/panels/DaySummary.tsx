@@ -22,24 +22,20 @@ export function DaySummary({ summary, money, onContinue }: DaySummaryProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}>
-      
       <motion.section
         className="w-[520px] text-cream"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.12, ease: [0.23, 1, 0.32, 1] }}
         aria-label="今日结算">
-        
         <p className="text-sm text-cream-dim">
           {SEASON_NAMES[summary.season]} · 第 {dayOfSeason} 天 结束
         </p>
         <h2 className="mt-1 text-4xl font-black tracking-tight">{summary.fainted ? '你在矿洞里倒下了……' : summary.passedOut ? '你在路边睡着了……' : '晚安，雾谷。'}</h2>
         {summary.passedOut && <p className="mt-2 text-sm text-berry">好心的居民把你送回了家，诊疗费 {summary.lost} 金币。</p>}
-
         <div className="mt-8 border-y border-cream/10 py-4">
           {summary.items.length === 0 ?
           <p className="text-sm text-cream-dim">今天没有出货。明天带点收成去出货箱吧。</p> :
-
           <ul className="max-h-60 space-y-2 overflow-y-auto">
               {summary.items.map((it) =>
             <li key={it.id} className="flex items-center gap-3 text-sm">
@@ -52,7 +48,6 @@ export function DaySummary({ summary, money, onContinue }: DaySummaryProps) {
             </ul>
           }
         </div>
-
         <div className="mt-4 flex items-end justify-between">
           <div>
             <p className="text-xs text-cream-dim">今日收入</p>
@@ -63,26 +58,19 @@ export function DaySummary({ summary, money, onContinue }: DaySummaryProps) {
             <Coins value={money} className="font-display text-lg" />
           </div>
         </div>
-
         {summary.goals.length > 0 &&
         <ul className="mt-6 space-y-1">
             {summary.goals.map((id) => {
             const g = goals.find((x) => x.id === id);
-            return g ?
-            <li key={id} className="text-sm text-sage">
-                  ✦ 目标达成：{g.title} +{g.reward}
-                </li> :
-            null;
+            return g ? <li key={id} className="text-sm text-sage">✦ 目标达成：{g.title} +{g.reward}</li> : null;
           })}
           </ul>
         }
-
         <button
           type="button"
           autoFocus
           onClick={onContinue}
           className="mt-8 w-full rounded-xl bg-cream py-3 font-display text-lg text-ink transition-colors duration-150 hover:bg-amber focus:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2 focus-visible:ring-offset-ink">
-          
           迎接新的一天
         </button>
       </motion.section>

@@ -24,5 +24,5 @@ export const FARM_RECT = { x: 6, y: 13, w: 26, h: 20 };
 export const PEN_RECT = { x: 12, y: 7, w: 15, h: 5 };
 export const ANIMAL_CAP = { chicken: 4, cow: 2 };
 export const SEASON_NAMES: Record<Season, string> = { spring: '春', summer: '夏', autumn: '秋', winter: '冬' };
-export const MAP_NAMES: Record<MapId, string> = { farm: '雾谷农场', town: '灯湖镇', mine: '幽光矿洞' };
-export const MAP_SUBS: Record<MapId, string> = { farm: '你的家', town: '居民 · 商店 · 委托', mine: '越深处，越危险' };
+export const MAP_NAMES: Record<MapId, string> = { farm: '雾谷农场', town: '灯湖镇', mine: '幽光矿洞', interior: '室内' };
+export const MAP_SUBS: Record<MapId, string> = { farm: '你的家', town: '居民 · 商店 · 委托', mine: '越深处，越危险', interior: '' };

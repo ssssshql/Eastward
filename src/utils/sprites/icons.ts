@@ -277,6 +277,6 @@ export function buildIcon(id: string): HTMLCanvasElement {
         p.ball(8, 8, 4, 4, METAL);
       }
   }
-  p.outline(0.6);
+  p.outline(0.7);
   return p.canvas();
 }

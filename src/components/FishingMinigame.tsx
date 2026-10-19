@@ -110,7 +110,6 @@ export function FishingMinigame({ fishId, onFinish }: FishingMinigameProps) {
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}>
-        
         <div className="relative w-16 overflow-hidden rounded-xl bg-[#173a4a]" style={{ height: BAR }}>
           {[0.2, 0.45, 0.7].map((y) =>
           <div key={y} className="absolute inset-x-2 h-px bg-mist/15" style={{ top: `${y * 100}%` }} />

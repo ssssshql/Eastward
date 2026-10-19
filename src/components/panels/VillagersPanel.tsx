@@ -16,7 +16,7 @@ interface VillagersPanelProps {
 export function VillagersPanel({ snap, onClose }: VillagersPanelProps) {
   return (
     <Modal title="灯湖镇的居民" subtitle="每天聊天、送他们喜欢的东西，好感到 2 心和 4 心时会收到回礼。" onClose={onClose} className="w-[760px]">
-      <ul className="grid grid-cols-2 gap-3 px-7 py-5">
+      <ul className="grid gap-3 px-7 py-5 sm:grid-cols-2">
         {npcs.map((n) => {
           const st = snap.npcs.find((x) => x.id === n.id);
           const f = st?.friendship ?? 0;
@@ -47,7 +47,6 @@ export function VillagersPanel({ snap, onClose }: VillagersPanelProps) {
                 </div>
               </div>
             </li>);
-
         })}
       </ul>
     </Modal>);

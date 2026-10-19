@@ -1,16 +1,22 @@
-import type { Animal, Banner, DaySummary, Dialog, Dir, MapId, Mode, Monster, NpcState, PanelMode, Pickup, Player, Prompt, Request, Season, Stack, Stats, Toast, UiSnapshot, UpgradeId, Weather, World } from '../../types/game';
+import type { Animal, Banner, DaySummary, Dialog, Dir, MapId, Mode, Monster, NpcState, PanelMode, Pickup, Player, Prompt, Request, Season, Stack, Stats, Structure, Toast, UiSnapshot, UpgradeId, Weather, World } from '../../types/game';
 import { DAY_END, DAY_START, DAYS_PER_SEASON, HOTBAR_SIZE, INV_SIZE, MAP_NAMES, MAP_SUBS, MAX_STACK, MIN_PER_SEC, PLAYER_SPEED, SEASON_NAMES, SEASONS, TILE, TITLE_TIME } from './constants';
-import { advanceNight, isSolid, warpAt } from './world';
+import { advanceNight, inBounds, interiorKey, isDoorTile, isSolid, warpAt } from './world';
 import { createFarm } from './maps/farmMap';
 import { createTown } from './maps/townMap';
 import { createMine, MINE_SPAWN } from './maps/mineMap';
+import { createInterior } from './maps/interiorMap';
 import { ParticleSystem } from './particles';
-import { ambientAt } from './lighting';
 import { actWithSelected, computePrompt, computeTarget, interact, stepAction, updateFishing } from './farmActions';
 import { createNpcStates, resetNpcsForDay, spawnAnimal, updateAnimals, updateMonsters, updateNpcs } from './entities';
 import { rollRequests } from './social';
 import { eatSlot } from './economy';
 import { hasSave, readSave, worldFromSave, worldToSave, writeSave } from './save';
+import { updateAmbient, AmbientTimers } from './ambient';
+import { createLife, LifeState, onNewDay, rollVisitors, updateLife, visitorNear } from './life';
+import { findPath, neighbourGoals } from './pathfind';
+import { animalNear, npcNear } from './entities';
+import { isMature } from './farmActions';
+import { REACH } from './constants';
 import { getItem } from '../items';
 import { goals } from '../../data/goals';
 import { LEAF_PARTICLES } from '../sprites/nature';
@@ -47,6 +53,7 @@ interface PendingWarp {
   ty: number;
   dir: Dir;
   floor?: number;
+  key?: string;
 }
 
 export function emptyStats(): Stats {
@@ -76,6 +83,7 @@ export class FarmGame {
   farm: World;
   town: World;
   world: World;
+  interiors = new Map<string, World>();
   monsters: Monster[] = [];
   npcs: NpcState[] = createNpcStates();
   animals: Animal[] = [];
@@ -130,7 +138,11 @@ export class FarmGame {
   private snapCam = true;
   private minuteBucket = -1;
   private seq = 0;
-  private amb = { leaf: 0, smoke: 0, fly: 0, mote: 0, splash: 0, drip: 0 };
+  private amb: AmbientTimers = { leaf: 0, smoke: 0, fly: 0, mote: 0, splash: 0, drip: 0 };
+  life: LifeState = createLife();
+  path: [number, number][] | null = null;
+  pathGoal: {x: number;y: number;interact: boolean;} | null = null;
+  private pathStuck = 0;
 
   constructor(seed = Math.floor(Math.random() * 1e9)) {
     this.seed = seed;
@@ -139,6 +151,91 @@ export class FarmGame {
     this.world = this.farm;
     spawnAnimal(this, 'chicken');
     rollRequests(this);
+    rollVisitors(this, true);
+  }
+
+  // ---------- tap to walk ----------
+  /** Tap/click on the map: walk there, or walk next to the thing tapped and interact with it. */
+  tapAt(sx: number, sy: number): void {
+    if (this.mode !== 'play' || this.pending || this.player.action || this.fishing) return;
+    const wx = this.camX + sx / this.viewScale;
+    const wy = this.camY + sy / this.viewScale;
+    const w = this.world;
+    let tx = Math.floor(wx / TILE);
+    let ty = Math.floor(wy / TILE);
+    if (!inBounds(w, tx, ty)) return;
+    let interactive = false;
+    const being = visitorNear(this, wx, wy + 4, 14) ?? npcNear(this, wx, wy + 4, 14) ?? animalNear(this, wx, wy + 4, 14);
+    if (being) {
+      tx = Math.floor(being.x / TILE);
+      ty = Math.floor((being.y - 3) / TILE);
+      interactive = true;
+    }
+    const i = ty * w.w + tx;
+    const crop = w.crops[i];
+    const o = w.objects[i];
+    const solid = isSolid(w, tx, ty);
+    if (!interactive) interactive = solid || !!crop && isMature(crop) || !!o && o.kind === 'jar';
+    const pl = this.player;
+    const ptx = Math.floor(pl.x / TILE);
+    const pty = Math.floor((pl.y - 3) / TILE);
+    if (interactive && Math.abs(ptx - tx) + Math.abs(pty - ty) === 1 && Math.hypot(tx * TILE + 8 - pl.x, ty * TILE + 8 - (pl.y - 6)) <= REACH) {
+      this.arrive({ x: tx, y: ty, interact: true });
+      return;
+    }
+    const goals = interactive ? neighbourGoals(w, tx, ty) : new Set<number>([i]);
+    if (!goals.size) return;
+    const p = findPath(w, ptx, pty, goals);
+    if (!p) {
+      this.toast('那边过不去', 'info');
+      return;
+    }
+    this.path = p;
+    this.pathGoal = { x: tx, y: ty, interact: interactive };
+    this.pathStuck = 0;
+    if (!p.length) this.arrive(this.pathGoal);
+  }
+
+  cancelPath(): void {
+    this.path = null;
+    this.pathGoal = null;
+  }
+
+  private arrive(goal: {x: number;y: number;interact: boolean;}): void {
+    this.cancelPath();
+    if (!goal.interact) return;
+    const pl = this.player;
+    const dx = goal.x * TILE + 8 - pl.x;
+    const dy = goal.y * TILE + 8 - (pl.y - 6);
+    pl.dir = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 'right' : 'left' : dy > 0 ? 'down' : 'up';
+    this.target = computeTarget(this, { up: false, down: false, left: false, right: false, useHeld: false, usePressed: false, interactPressed: false, mouseX: 0, mouseY: 0, mouseInside: false });
+    interact(this);
+  }
+
+  /** Converts the next waypoint into virtual stick input. */
+  private pathInput(input: InputState, dt: number): InputState {
+    const path = this.path;
+    const pl = this.player;
+    if (!path || !path.length) {
+      if (this.pathGoal) this.arrive(this.pathGoal);
+      return input;
+    }
+    const [wx, wy] = path[0];
+    const gx = wx * TILE + 8;
+    const gy = wy * TILE + 11;
+    const dx = gx - pl.x;
+    const dy = gy - pl.y;
+    if (Math.abs(dx) < 1.6 && Math.abs(dy) < 1.6) {
+      path.shift();
+      this.pathStuck = 0;
+      return this.pathInput(input, dt);
+    }
+    this.pathStuck += dt;
+    if (this.pathStuck > 1.2) {
+      this.cancelPath();
+      return input;
+    }
+    return { ...input, left: dx < -1.2, right: dx > 1.2, up: dy < -1.2, down: dy > 1.2 };
   }
 
   season(): Season {
@@ -163,7 +260,8 @@ export class FarmGame {
     this.elapsed += dt;
     this.hurtT = Math.max(0, this.hurtT - dt);
     this.particles.update(dt);
-    this.updateAmbient(dt);
+    updateAmbient(this, this.amb, dt);
+    updateLife(this, dt);
     this.pruneFeeds();
     if (this.pending) {
       this.fade = Math.min(1, this.fade + dt * 5);
@@ -210,7 +308,11 @@ export class FarmGame {
       updateFishing(this, dt, input);
       pl.moving = false;
     } else {
-      this.move(dt, input);
+      const manual = input.up || input.down || input.left || input.right;
+      if (manual && this.path) this.cancelPath();
+      const mv = this.path ? this.pathInput(input, dt) : input;
+      this.move(dt, mv);
+      if (mv.up && !this.world.indoor) this.tryDoor();
       if (input.usePressed || input.useHeld && this.useCooldown <= 0) {
         actWithSelected(this);
         this.useCooldown = this.inv[this.selected]?.id === 'sword' ? 0.26 : 0.34;
@@ -227,6 +329,42 @@ export class FarmGame {
     }
   }
 
+  /** Walking up into a door walks you inside, like Stardew. */
+  private tryDoor(): void {
+    const pl = this.player;
+    const tx = Math.floor(pl.x / TILE);
+    const ty = Math.floor((pl.y - 7) / TILE);
+    if (!inBounds(this.world, tx, ty)) return;
+    const si = this.world.blocked[ty * this.world.w + tx];
+    if (si < 0) return;
+    const s = this.world.structures[si];
+    if (isDoorTile(s, tx, ty)) this.enterBuilding(s);
+  }
+
+  enterBuilding(s: Structure): void {
+    this.requestWarp({ to: 'interior', key: interiorKey(s), tx: 0, ty: 0, dir: 'up' });
+  }
+
+  getInterior(key: string): World {
+    let w = this.interiors.get(key);
+    if (!w) {
+      const outside = key === 'house' || key === 'coop' ? this.farm : this.town;
+      const s = outside.structures.find((st) => st.kind !== 'furniture' && interiorKey(st) === key);
+      const ex = s ? s.x + s.w / 2 - 0.5 : 7;
+      const ey = s ? s.y + s.h : 8;
+      w = createInterior(key, outside.id, ex, ey, this.seed);
+      this.interiors.set(key, w);
+    }
+    return w;
+  }
+
+  private wakeInHouse(): void {
+    const house = this.getInterior('house');
+    this.world = house;
+    const [wx, wy] = house.wake ?? [4, 4];
+    this.player = spawnPlayer(wx, wy, 'down');
+  }
+
   private checkWarp(): void {
     const pl = this.player;
     const tx = Math.floor(pl.x / TILE);
@@ -236,7 +374,7 @@ export class FarmGame {
       if (wp.to === 'mine') {
         const start = Math.max(1, Math.floor(this.stats.deepest / 5) * 5);
         this.requestWarp({ to: 'mine', tx: 0, ty: 0, dir: 'up', floor: start });
-      } else this.requestWarp({ to: wp.to, tx: wp.tx, ty: wp.ty, dir: wp.dir });
+      } else this.requestWarp({ to: wp.to, tx: wp.tx, ty: wp.ty, dir: wp.dir, key: wp.key });
       return;
     }
     const o = this.world.objects[ty * this.world.w + tx];
@@ -255,6 +393,7 @@ export class FarmGame {
 
   private doWarp(p: PendingWarp): void {
     this.pending = null;
+    const fromIndoor = this.world.indoor;
     if (p.to === 'mine') {
       const floor = p.floor ?? 1;
       const m = createMine(floor, this.seed + this.day * 13);
@@ -267,13 +406,22 @@ export class FarmGame {
         this.checkGoals();
       }
       this.setBanner(`第 ${floor} 层`, floor % 5 === 0 ? '下次可以从这一层直接开始' : MAP_SUBS.mine);
+    } else if (p.to === 'interior') {
+      const w = this.getInterior(p.key ?? 'house');
+      this.world = w;
+      this.monsters = [];
+      const [sx, sy] = w.spawn ?? [Math.floor(w.w / 2), w.h - 2];
+      this.player = spawnPlayer(sx, sy, 'up');
     } else {
+      const fromMap = this.world.id;
       this.world = p.to === 'farm' ? this.farm : this.town;
       this.monsters = [];
       this.player = spawnPlayer(p.tx, p.ty, p.dir);
-      this.setBanner(MAP_NAMES[p.to], MAP_SUBS[p.to]);
+      if (!fromIndoor || fromMap !== 'interior') this.setBanner(MAP_NAMES[p.to], MAP_SUBS[p.to]);
     }
     this.particles.list = [];
+    this.life.critters = [];
+    this.cancelPath();
     this.snapCam = true;
     this.dirty = true;
   }
@@ -321,7 +469,7 @@ export class FarmGame {
     if (!this.blocked(pl.x, pl.y + dy)) pl.y += dy;
     pl.moving = true;
     pl.walkT += dt * (this.speedBuff ? 1.3 : 1);
-    if (Math.random() < dt * 4) {
+    if (Math.random() < dt * 4 && !this.world.indoor) {
       this.particles.spawn('dust', pl.x + (Math.random() - 0.5) * 6, pl.y, { life: 0.45, vz: 14, z: 1, vx: -mx * 8, color: this.world.dark ? '#7a6a80' : this.season() === 'winter' ? '#eef3f8' : '#cdb89a' });
     }
   }
@@ -357,90 +505,6 @@ export class FarmGame {
       const k = 1 - Math.exp(-dt * (this.mode === 'title' ? 2 : 6));
       this.camX += (tx - this.camX) * k;
       this.camY += (ty - this.camY) * k;
-    }
-  }
-
-  private updateAmbient(dt: number): void {
-    const w = this.world;
-    const P = this.particles;
-    const rx = () => this.camX + Math.random() * this.viewW;
-    const ry = () => this.camY + Math.random() * this.viewH;
-    if (w.dark) {
-      this.amb.drip -= dt;
-      if (this.amb.drip <= 0) {
-        this.amb.drip = 0.25;
-        P.spawn('mote', rx(), ry(), { z: 6 + Math.random() * 20, life: 4, vx: (Math.random() - 0.5) * 4, vy: -2, color: '#c0a0ff' });
-      }
-      return;
-    }
-    const { night } = ambientAt(this.displayTime(), this.weather);
-    const season = this.season();
-
-    this.amb.fly -= dt;
-    if (night > 0.55 && this.weather === 'clear' && season !== 'winter' && this.amb.fly <= 0) {
-      this.amb.fly = 0.15;
-      if (P.count('firefly') < 34) P.spawn('firefly', rx(), ry(), { z: 4 + Math.random() * 14, life: 5 + Math.random() * 5, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 6 });
-    }
-
-    this.amb.leaf -= dt;
-    if (this.amb.leaf <= 0) {
-      this.amb.leaf = season === 'autumn' ? 0.12 : season === 'winter' ? 1.4 : 0.4;
-      for (let k = 0; k < 14; k++) {
-        const tx = Math.floor(rx() / TILE);
-        const ty = Math.floor((this.camY + Math.random() * (this.viewH + 48)) / TILE);
-        if (tx < 0 || ty < 0 || tx >= w.w || ty >= w.h) continue;
-        const o = w.objects[ty * w.w + tx];
-        if (o && o.kind === 'tree' && Math.floor(o.variant / 3) !== 1) {
-          const blossom = Math.floor(o.variant / 3) === 2 && season === 'spring';
-          const cols = blossom ? ['#ffc3d8', '#ffe3ee', '#ff9ac0'] : LEAF_PARTICLES[season];
-          P.spawn(blossom ? 'petal' : 'leaf', tx * TILE + 8 + (Math.random() - 0.5) * 30, ty * TILE + 14 + Math.random() * 10, {
-            z: 18 + Math.random() * 22,
-            vz: -9 - Math.random() * 5,
-            vx: 6 + Math.random() * 8,
-            vy: 2,
-            life: 7,
-            color: cols[Math.floor(Math.random() * cols.length)]
-          });
-          break;
-        }
-      }
-    }
-
-    this.amb.smoke -= dt;
-    if (this.amb.smoke <= 0) {
-      this.amb.smoke = 0.3;
-      for (const s of w.structures) {
-        const chim = s.kind === 'house' ? 60 : s.kind === 'smith' ? 64 : s.kind === 'tavern' ? 22 : s.kind === 'store' ? 76 : -1;
-        if (chim < 0) continue;
-        const h = s.kind === 'tavern' ? 115 : s.kind === 'store' ? 97 : s.kind === 'smith' ? 89 : 93;
-        P.spawn('smoke', s.x * TILE + chim + (Math.random() - 0.5) * 2, (s.y + s.h) * TILE - h + 3, {
-          life: 3.2,
-          size: s.kind === 'smith' ? 2.2 : 1.5,
-          vx: 3 + Math.random() * 3,
-          color: s.kind === 'smith' ? '#8a8494' : '#d9d4dc'
-        });
-      }
-      const f = w.structures.find((s) => s.kind === 'fountain');
-      if (f) P.burst('drop', f.x * TILE + 32, (f.y + f.h) * TILE - 52, 3, ['#bfefff', '#ffffff'], { speed: 14, up: 60, z: 2, life: 0.8 });
-    }
-
-    this.amb.mote -= dt;
-    if (night < 0.3 && this.weather === 'clear' && this.amb.mote <= 0) {
-      this.amb.mote = 0.35;
-      if (P.count('mote') < 26) P.spawn('mote', rx(), ry(), { z: 10 + Math.random() * 24, life: 4 + Math.random() * 2, vx: 4 + Math.random() * 3, vy: -1, color: '#fff2c8' });
-    }
-
-    if (this.weather === 'rain' && this.mode !== 'title') {
-      this.amb.splash -= dt;
-      while (this.amb.splash <= 0) {
-        this.amb.splash += 0.025;
-        const x = rx();
-        const y = ry();
-        const tx = Math.floor(x / TILE);
-        const ty = Math.floor(y / TILE);
-        const water = tx >= 0 && ty >= 0 && tx < w.w && ty < w.h && w.ground[ty * w.w + tx] === 'water';
-        P.spawn(water ? 'ripple' : 'splash', x, y, { life: water ? 0.6 : 0.25 });
-      }
     }
   }
 
@@ -619,6 +683,8 @@ export class FarmGame {
     }
     resetNpcsForDay(this);
     rollRequests(this);
+    onNewDay(this);
+    this.cancelPath();
     this.energy = this.passedOut ? Math.round(this.maxEnergy * 0.65) : this.maxEnergy;
     this.hp = this.fainted ? Math.round(this.maxHp * 0.6) : this.maxHp;
     this.fainted = false;
@@ -626,9 +692,8 @@ export class FarmGame {
     this.shipped = [];
     this.todayGoals = [];
     this.summary = null;
-    this.world = this.farm;
     this.monsters = [];
-    this.player = spawnPlayer();
+    this.wakeInHouse();
     this.particles.list = [];
     this.mode = 'play';
     this.snapCam = true;
@@ -644,10 +709,11 @@ export class FarmGame {
   startNewGame(): void {
     this.mode = 'play';
     this.time = DAY_START;
+    this.wakeInHouse();
     this.snapCam = true;
     this.particles.list = [];
     this.setBanner(MAP_NAMES.farm, '春 · 第 1 天');
-    this.toast('先翻土播种，再沿着东边的小路去灯湖镇看看吧', 'good');
+    this.toast('走出小屋，先翻土播种，再沿着东边的小路去灯湖镇看看吧', 'good');
     this.save();
     this.dirty = true;
   }
@@ -658,7 +724,7 @@ export class FarmGame {
     this.seed = d.seed;
     this.farm = worldFromSave(d);
     this.town = createTown(d.seed);
-    this.world = this.farm;
+    this.interiors.clear();
     this.money = d.money;
     this.day = d.day;
     this.energy = d.energy;
@@ -682,7 +748,7 @@ export class FarmGame {
     if (d.animals) this.animals = d.animals;
     if (d.requests) this.requests = d.requests;
     this.time = DAY_START;
-    this.player = spawnPlayer();
+    this.wakeInHouse();
     this.particles.list = [];
     this.mode = 'play';
     this.snapCam = true;

@@ -10,17 +10,18 @@ interface HotbarProps {
   canWater: number;
   canMax: number;
   onSelect: (i: number) => void;
+  compact?: boolean;
 }
 
 const KEYS = '1234567890-=';
 
-export function Hotbar({ inventory, selected, canWater, canMax, onSelect }: HotbarProps) {
+export function Hotbar({ inventory, selected, canWater, canMax, onSelect, compact = false }: HotbarProps) {
   const slots = inventory.slice(0, HOTBAR_SIZE);
   const sel = slots[selected];
   return (
-    <div className="flex flex-col items-center gap-2">
-      <div className="h-5 text-sm font-medium text-cream [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">{sel ? getItem(sel.id).name : ''}</div>
-      <nav className="glass flex gap-1.5 p-2" aria-label="快捷栏">
+    <div className="flex max-w-full flex-col items-center gap-2">
+      {!compact && <div className="h-5 text-sm font-medium text-cream [text-shadow:0_1px_3px_rgba(0,0,0,0.6)]">{sel ? getItem(sel.id).name : ''}</div>}
+      <nav className={`glass flex max-w-full overflow-x-auto ${compact ? 'gap-1 px-2 pb-2 pt-2.5' : 'gap-1.5 px-2.5 pb-2.5 pt-3'}`} aria-label="快捷栏">
         {slots.map((s, i) => {
           const active = i === selected;
           return (
@@ -31,13 +32,12 @@ export function Hotbar({ inventory, selected, canWater, canMax, onSelect }: Hotb
               onClick={() => onSelect(i)}
               aria-label={s ? `${getItem(s.id).name}${s.qty > 1 ? ` ×${s.qty}` : ''}` : `空格位 ${i + 1}`}
               aria-pressed={active}
-              className={`relative flex h-12 w-12 items-center justify-center rounded-xl transition-[transform,background-color,box-shadow] duration-150 ease-out ${
-              active ? '-translate-y-1 bg-cream/15 shadow-[0_0_0_2px_#f2b45a]' : 'bg-ink-3/60 hover:bg-ink-3'}`
+              className={`slot relative flex shrink-0 items-center justify-center transition-transform duration-150 ease-out ${compact ? 'h-11 w-11' : 'h-12 w-12'} ${
+              active ? '-translate-y-1 outline outline-[3px] outline-berry' : ''}`
               }>
-              
-              <span className="absolute left-1 top-0.5 text-[9px] font-medium text-cream/35">{KEYS[i]}</span>
-              {s && <ItemIcon id={s.id} size={32} />}
-              {s && s.qty > 1 && <span className="absolute bottom-0.5 right-1 text-[11px] font-bold tabular-nums text-cream [text-shadow:0_1px_2px_#000]">{s.qty}</span>}
+              {!compact && <span className="absolute left-1 top-0 font-pixel text-[9px] text-parch-ink/50">{KEYS[i]}</span>}
+              {s && <ItemIcon id={s.id} size={compact ? 28 : 32} />}
+              {s && s.qty > 1 && <span className="absolute bottom-0 right-1 font-pixel text-[12px] font-bold tabular-nums text-cream [text-shadow:1px_1px_0_#3a2012,-1px_-1px_0_#3a2012,1px_-1px_0_#3a2012,-1px_1px_0_#3a2012]">{s.qty}</span>}
               {s?.id === 'can' &&
               <span className="absolute bottom-1 left-2 right-2 h-[3px] overflow-hidden rounded-full bg-ink/80">
                   <span className="block h-full rounded-full bg-mist" style={{ width: `${canWater / canMax * 100}%` }} />

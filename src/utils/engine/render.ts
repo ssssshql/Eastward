@@ -1,46 +1,17 @@
 import type { FarmGame } from './FarmGame';
 import type { SpriteBank } from '../sprites/bank';
+import type { World } from '../../types/game';
+import type { Caster, Drawable, FrameInfo, LightSource, SunState, ViewRect } from './renderTypes';
 import { silhouette } from '../sprites/bank';
 import { TILE } from './constants';
-import { cropStage, isMature, lineTiles } from './farmActions';
+import { cropStage, isMature } from './farmActions';
 import { getIconCanvas } from '../sprites/iconCache';
-import { getItem } from '../items';
 import { processing } from '../../data/recipes';
-import type { Particle } from './particles';
+import { drawFishing, drawParticles, drawPlayer, drawTarget } from './renderActors';
+import { drawReflections, drawSparkles, waterInView } from './water';
+import { collectLife, drawLifeOverlay } from './renderLife';
 
-export interface ViewRect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-export interface LightSource {
-  x: number;
-  y: number;
-  r: number;
-  a: number;
-  kind: 'warm' | 'cool' | 'green' | 'violet';
-}
-
-export interface SunState {
-  dx: number;
-  dy: number;
-  strength: number;
-}
-
-interface Drawable {
-  y: number;
-  draw: () => void;
-}
-
-interface Caster {
-  img: HTMLCanvasElement;
-  bx: number;
-  by: number;
-  ox: number;
-  oy: number;
-}
+export type { LightSource, SunState, ViewRect } from './renderTypes';
 
 /** Sun direction for long cinematic shadows. Morning shadows fall west, evening shadows east. */
 export function sunAt(minutes: number, night: number, overcast: boolean, dark: boolean): SunState {
@@ -54,60 +25,72 @@ export function sunAt(minutes: number, night: number, overcast: boolean, dark: b
   return night > 0.7 ? { dx: 0.35, dy: 0.45, strength } : { dx, dy, strength };
 }
 
+const FLOOR_Y = 3 * TILE;
+
+function windowBeams(ctx: CanvasRenderingContext2D, world: World, dayNight: number, patch: boolean): void {
+  const a = 1 - dayNight;
+  if (a < 0.05) return;
+  for (const s of world.structures) {
+    if (s.prop !== 'window') continue;
+    const cx = s.x * TILE + 8;
+    const wb = (s.y + s.h) * TILE - 4;
+    const slant = 12;
+    ctx.fillStyle = '#ffeec4';
+    ctx.beginPath();
+    if (patch) {
+      ctx.globalAlpha = 0.16 * a;
+      ctx.moveTo(cx - 7 + slant * 0.6, FLOOR_Y + 14);
+      ctx.lineTo(cx + 7 + slant * 0.6, FLOOR_Y + 14);
+      ctx.lineTo(cx + 9 + slant, FLOOR_Y + 32);
+      ctx.lineTo(cx - 9 + slant, FLOOR_Y + 32);
+    } else {
+      ctx.globalAlpha = 0.07 * a;
+      ctx.moveTo(cx - 7, wb - 14);
+      ctx.lineTo(cx + 7, wb - 14);
+      ctx.lineTo(cx + 9 + slant, FLOOR_Y + 32);
+      ctx.lineTo(cx - 9 + slant, FLOOR_Y + 32);
+    }
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
 export function drawWorld(
 ctx: CanvasRenderingContext2D,
 shadowCtx: CanvasRenderingContext2D,
+reflCtx: CanvasRenderingContext2D,
 g: FarmGame,
 bank: SpriteBank,
 ground: HTMLCanvasElement,
 patterns: CanvasPattern[],
-v: ViewRect,
-night: number,
-sun: SunState)
+f: FrameInfo)
 : LightSource[] {
   const { world, player } = g;
+  const v = f.view;
+  const night = f.night;
+  const sun = f.sun;
   const S = bank.shared;
   const t = g.elapsed;
   const lights: LightSource[] = [];
   const casters: Caster[] = [];
+  const mirrors: Caster[] = [];
+  const items: Drawable[] = [];
+  const contact: [number, number, number, number][] = [];
+  const outdoor = !world.dark && !world.indoor;
+  const isNight = f.dayNight > 0.35;
   const base = () => ctx.setTransform(1, 0, 0, 1, -v.x, -v.y);
   const skew = (px: number, py: number, k: number) => ctx.setTransform(1, 0, k, 1, Math.round(px) - v.x, Math.round(py) - v.y);
-  base();
-  ctx.globalAlpha = 1;
-  ctx.imageSmoothingEnabled = false;
-
-  if (patterns.length && !world.dark) {
-    ctx.fillStyle = patterns[Math.floor(t * 7) % patterns.length];
-    ctx.fillRect(v.x, v.y, v.w, v.h);
-  } else {
-    ctx.fillStyle = '#0c0a12';
-    ctx.fillRect(v.x, v.y, v.w, v.h);
-  }
-  const sx = Math.max(0, v.x);
-  const sy = Math.max(0, v.y);
-  const ex = Math.min(ground.width, v.x + v.w);
-  const ey = Math.min(ground.height, v.y + v.h);
-  if (ex > sx && ey > sy) ctx.drawImage(ground, sx, sy, ex - sx, ey - sy, sx, sy, ex - sx, ey - sy);
+  const cast = (c: Caster, shadow = true) => {
+    if (shadow) casters.push(c);
+    mirrors.push(c);
+  };
 
   const tx0 = Math.max(0, Math.floor(v.x / TILE) - 3);
   const tx1 = Math.min(world.w - 1, Math.ceil((v.x + v.w) / TILE) + 3);
   const ty0 = Math.max(0, Math.floor(v.y / TILE) - 1);
   const ty1 = Math.min(world.h - 1, Math.ceil((v.y + v.h) / TILE) + 7);
-  const tilledAt = (x: number, y: number) => x >= 0 && y >= 0 && x < world.w && y < world.h && world.tilled[y * world.w + x] === 1;
-
-  for (let ty = ty0; ty <= ty1; ty++) {
-    for (let tx = tx0; tx <= tx1; tx++) {
-      const i = ty * world.w + tx;
-      if (!world.tilled[i]) continue;
-      const m = (tilledAt(tx, ty - 1) ? 1 : 0) | (tilledAt(tx + 1, ty) ? 2 : 0) | (tilledAt(tx, ty + 1) ? 4 : 0) | (tilledAt(tx - 1, ty) ? 8 : 0);
-      ctx.drawImage((world.watered[i] ? S.soilWet : S.soilDry)[m], tx * TILE, ty * TILE);
-    }
-  }
-
-  const items: Drawable[] = [];
-  const contact: [number, number, number, number][] = [];
   const windSway = Math.sin(t * 0.4) * 0.015;
-  const isNight = night > 0.35;
 
   for (let ty = ty0; ty <= ty1; ty++) {
     for (let tx = tx0; tx <= tx1; tx++) {
@@ -122,7 +105,8 @@ sun: SunState)
           case 'tree':{
               const spr = bank.trees[o.variant % bank.trees.length];
               contact.push([bx, by, 9, 3]);
-              casters.push({ img: spr.trunk, bx, by: by + 0, ox: -24, oy: -61 }, { img: spr.canopy, bx, by, ox: -24, oy: -61 });
+              cast({ img: spr.trunk, bx, by, ox: -24, oy: -61 });
+              cast({ img: spr.canopy, bx, by, ox: -24, oy: -61 });
               const behind = player.y < by - 2 && player.y > by - 58 && Math.abs(player.x - bx) < 20;
               const sway = Math.sin(t * 1.1 + tx * 0.9 + ty * 0.37) * 0.03 + Math.sin(t * 2.3 + tx) * 0.008 + windSway;
               items.push({
@@ -140,13 +124,13 @@ sun: SunState)
             }
           case 'stump':
             contact.push([bx, by, 7, 2.5]);
-            casters.push({ img: bank.stumps[o.variant % 3], bx, by, ox: -8, oy: -14 });
+            cast({ img: bank.stumps[o.variant % 3], bx, by, ox: -8, oy: -14 });
             items.push({ y: by, draw: () => ctx.drawImage(bank.stumps[o.variant % 3], Math.round(bx - 8 + sh), by - 14) });
             break;
           case 'rock':{
               const img = bank.rocks[o.variant % 8];
               contact.push([bx, by - 1, 8, 2.5]);
-              casters.push({ img, bx, by, ox: -9, oy: -13 });
+              cast({ img, bx, by, ox: -9, oy: -13 });
               if (o.variant >= 3 && world.dark) lights.push({ x: bx, y: by - 6, r: 16, a: 0.35, kind: o.variant === 4 ? 'warm' : o.variant === 3 ? 'violet' : 'cool' });
               items.push({ y: by, draw: () => ctx.drawImage(img, Math.round(bx - 9 + sh), by - 13) });
               break;
@@ -180,7 +164,7 @@ sun: SunState)
             break;
           case 'bush':
             contact.push([bx, by, 9, 3]);
-            casters.push({ img: bank.bushes[o.variant % 2], bx, by: by + 1, ox: -13, oy: -21 });
+            cast({ img: bank.bushes[o.variant % 2], bx, by: by + 1, ox: -13, oy: -21 });
             items.push({
               y: by,
               draw: () => {
@@ -206,7 +190,7 @@ sun: SunState)
             break;
           case 'jar':{
               contact.push([bx, by, 6, 2]);
-              casters.push({ img: S.jar, bx, by: by + 1, ox: -8, oy: -21 });
+              cast({ img: S.jar, bx, by: by + 1, ox: -8, oy: -21 });
               const ready = !!(o.item && o.ready);
               if (ready) lights.push({ x: bx, y: by - 22, r: 18, a: 0.5, kind: 'warm' });
               items.push({
@@ -226,10 +210,11 @@ sun: SunState)
             }
           case 'lamp':{
               contact.push([bx, by, 5, 2]);
-              casters.push({ img: S.lampOn, bx, by: by + 1, ox: -6, oy: -34 });
               const on = night > 0.3 || world.dark;
-              if (night > 0.05) lights.push({ x: bx, y: by - 26, r: 64, a: night * (0.95 + Math.sin(t * 7 + tx) * 0.04), kind: 'warm' });
-              items.push({ y: by, draw: () => ctx.drawImage(on ? S.lampOn : S.lampOff, bx - 6, by - 33) });
+              const img = on ? S.lampOn : S.lampOff;
+              cast({ img, bx, by: by + 1, ox: -6, oy: -34 });
+              if (night > 0.05) lights.push({ x: bx, y: by - 26, r: 64, a: night * (0.95 + Math.sin(t * 7 + tx) * 0.04), kind: 'warm', base: by });
+              items.push({ y: by, draw: () => ctx.drawImage(img, bx - 6, by - 33) });
               break;
             }
         }
@@ -239,7 +224,7 @@ sun: SunState)
         const img = S.crops[c.id][cropStage(c)];
         const st = cropStage(c);
         if (st >= 2) contact.push([bx, by, 5, 1.6]);
-        if (st >= 3) casters.push({ img, bx, by: by + 1, ox: -11, oy: -32 });
+        if (st >= 3) cast({ img, bx, by: by + 1, ox: -11, oy: -32 });
         if (c.id === 'moonbloom' && isMature(c)) lights.push({ x: bx, y: by - 10, r: 32, a: 0.25 + night * 0.75 * (0.85 + Math.sin(t * 2 + tx) * 0.15), kind: 'cool' });
         items.push({
           y: by - 1,
@@ -273,6 +258,36 @@ sun: SunState)
   }
 
   for (const s of world.structures) {
+    if (s.kind === 'furniture') {
+      const bottom = (s.y + s.h) * TILE;
+      if (s.npc) {
+        const frames = S.npcs[s.npc];
+        if (!frames) continue;
+        const x = s.x * TILE + 8;
+        const y = bottom - 2;
+        const bob = Math.sin(t * 1.5 + s.x) > 0.96 ? 1 : 0;
+        contact.push([x, y - 1, 6, 2.2]);
+        items.push({ y, draw: () => ctx.drawImage(frames.down[0], x - 10, y - 26 + bob) });
+        continue;
+      }
+      const fs = S.furniture[s.prop ?? ''];
+      if (!fs) continue;
+      const img = isNight && fs.night ? fs.night : fs.img;
+      const px = s.x * TILE + Math.round((s.w * TILE - img.width) / 2);
+      const top = bottom - img.height;
+      for (const L of fs.lights) {
+        const fl = L.flicker ? 0.88 + Math.sin(t * 11 + s.x) * 0.07 + Math.sin(t * 6.3 + s.y) * 0.05 : 1;
+        lights.push({ x: px + L.x, y: top + L.y, r: L.r, a: L.a * fl, kind: L.kind });
+        if (L.flicker && Math.random() < 0.08) g.particles.spawn('spark', px + L.x + (Math.random() - 0.5) * 8, top + L.y, { z: 0, vz: 14 + Math.random() * 10, life: 0.7, color: '#ffc060' });
+      }
+      if (s.prop === 'window' && f.dayNight < 0.9) {
+        const cx = s.x * TILE + 8;
+        lights.push({ x: cx + 14, y: FLOOR_Y + 22, r: 44, a: (1 - f.dayNight) * 0.55, kind: 'warm' });
+      }
+      if (s.y >= 3) contact.push([px + img.width / 2, bottom - 1, img.width * 0.42, 2.4]);
+      items.push({ y: bottom - 1, draw: () => ctx.drawImage(img, px, top) });
+      continue;
+    }
     const key = s.kind === 'cottage' ? `cottage${s.variant ?? 0}` : s.kind;
     const spr = bank.structures[key];
     if (!spr) continue;
@@ -280,13 +295,15 @@ sun: SunState)
     const px = s.x * TILE + spr.offX;
     const bottom = (s.y + s.h) * TILE;
     const top = bottom - img.height + 2;
-    if (px > v.x + v.w || px + img.width < v.x || bottom + 4 < v.y || top > v.y + v.h) continue;
     casters.push({ img: spr.day, bx: px, by: bottom, ox: 0, oy: -img.height + 2 });
+    mirrors.push({ img, bx: px, by: bottom, ox: 0, oy: -img.height + 2 });
+    if (px > v.x + v.w || px + img.width < v.x || bottom + 4 < v.y || top > v.y + v.h) continue;
     if (spr.meta && night > 0.05) {
-      for (const [wx, wy] of spr.meta.windows) lights.push({ x: px + wx, y: top + wy, r: 36, a: night * 0.9, kind: 'warm' });
+      for (const [wx, wy] of spr.meta.windows) lights.push({ x: px + wx, y: top + wy, r: 38, a: night * 0.9, kind: 'warm', base: bottom });
+      for (const [lx, ly] of spr.meta.lamps) lights.push({ x: px + lx, y: top + ly, r: 30, a: night * (0.9 + Math.sin(t * 9 + lx) * 0.05), kind: 'warm', base: bottom });
       lights.push({ x: px + spr.meta.door[0], y: top + spr.meta.door[1] + 10, r: 26, a: night * 0.5, kind: 'warm' });
     }
-    if (s.kind === 'smith') lights.push({ x: px + 64, y: top + 6, r: 30, a: 0.4 + night * 0.4, kind: 'warm' });
+    if (s.kind === 'smith') lights.push({ x: s.x * TILE + 64, y: top + 6, r: 30, a: 0.4 + night * 0.4, kind: 'warm' });
     if (s.kind === 'cart' && night > 0.05) lights.push({ x: px + 32, y: top + 31, r: 40, a: night * 0.9, kind: 'warm' });
     if (s.kind === 'cave') lights.push({ x: px + 48, y: top + 30, r: 34, a: 0.4 + night * 0.6, kind: 'warm' });
     if (s.kind === 'fountain') lights.push({ x: px + 32, y: top + 36, r: 40, a: 0.15 + night * 0.35, kind: 'cool' });
@@ -298,24 +315,22 @@ sun: SunState)
     for (const st of g.npcs) {
       if (!st.visible) continue;
       const frames = S.npcs[st.id][st.dir];
-      const f = st.moving ? [1, 0, 2, 0][Math.floor(st.walkT * 8) % 4] : 0;
+      const fi = st.moving ? [1, 0, 2, 0][Math.floor(st.walkT * 8) % 4] : 0;
       const x = Math.round(st.x);
       const y = Math.round(st.y);
       contact.push([x, y - 1, 6, 2.2]);
-      casters.push({ img: frames[f], bx: x, by: y, ox: -10, oy: -26 });
-      items.push({ y, draw: () => ctx.drawImage(frames[f], x - 10, y - 26) });
+      cast({ img: frames[fi], bx: x, by: y, ox: -10, oy: -26 });
+      items.push({ y, draw: () => ctx.drawImage(frames[fi], x - 10, y - 26) });
     }
   }
   if (world.id === 'farm') {
     for (const a of g.animals) {
       const fr = a.kind === 'chicken' ? S.chicken : S.cow;
-      const imgs = fr[a.dir];
-      const f = a.moving ? Math.floor(a.walkT * 6) % 2 : 0;
-      const img = imgs[f];
+      const img = fr[a.dir][a.moving ? Math.floor(a.walkT * 6) % 2 : 0];
       const x = Math.round(a.x);
       const y = Math.round(a.y);
       contact.push([x, y - 1, a.kind === 'cow' ? 11 : 5, 2.2]);
-      casters.push({ img, bx: x, by: y, ox: -Math.floor(img.width / 2), oy: -img.height + 1 });
+      cast({ img, bx: x, by: y, ox: -Math.floor(img.width / 2), oy: -img.height + 1 });
       items.push({
         y,
         draw: () => {
@@ -332,8 +347,7 @@ sun: SunState)
   }
   for (const m of g.monsters) {
     const frames = m.kind === 'slime' ? world.floor >= 6 ? S.slimeDeep : S.slime : S.bat;
-    const f = Math.floor(t * (m.kind === 'bat' ? 10 : 3) + m.seed) % 2;
-    const img = frames[f];
+    const img = frames[Math.floor(t * (m.kind === 'bat' ? 10 : 3) + m.seed) % 2];
     const x = Math.round(m.x);
     const hover = m.kind === 'bat' ? 10 + Math.round(Math.sin(t * 4 + m.seed) * 2) : 0;
     const y = Math.round(m.y);
@@ -357,11 +371,45 @@ sun: SunState)
 
   const pf = player.moving ? [1, 0, 2, 0][Math.floor(player.walkT * 9) % 4] : 0;
   contact.push([player.x, player.y - 1, 6, 2.2]);
-  casters.push({ img: S.player[player.dir][pf], bx: Math.round(player.x), by: Math.round(player.y), ox: -10, oy: -26 });
+  cast({ img: S.player[player.dir][pf], bx: Math.round(player.x), by: Math.round(player.y), ox: -10, oy: -26 });
   items.push({ y: player.y, draw: () => drawPlayer(ctx, g, bank, pf) });
+  collectLife(ctx, g, bank, { items, lights, mirrors, contact });
 
-  // Directional sun shadows composited once so overlaps never double-darken.
-  if (sun.strength > 0.01) {
+  // ---------- paint ----------
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
+  ctx.imageSmoothingEnabled = false;
+  base();
+  if (patterns.length && outdoor) {
+    ctx.fillStyle = patterns[Math.floor(t * 7) % patterns.length];
+    ctx.fillRect(v.x, v.y, v.w, v.h);
+    if (waterInView(world, v)) {
+      drawReflections(ctx, reflCtx, mirrors, v, t, g.season() === 'winter' ? '#5f8aa6' : '#1d5a74', 0.62 - night * 0.2);
+      drawSparkles(ctx, world, v, t, night);
+      base();
+    }
+  } else {
+    ctx.fillStyle = world.indoor ? '#120d16' : '#0c0a12';
+    ctx.fillRect(v.x, v.y, v.w, v.h);
+  }
+  const sx = Math.max(0, v.x);
+  const sy = Math.max(0, v.y);
+  const ex = Math.min(ground.width, v.x + v.w);
+  const ey = Math.min(ground.height, v.y + v.h);
+  if (ex > sx && ey > sy) ctx.drawImage(ground, sx, sy, ex - sx, ey - sy, sx, sy, ex - sx, ey - sy);
+
+  const tilledAt = (x: number, y: number) => x >= 0 && y >= 0 && x < world.w && y < world.h && world.tilled[y * world.w + x] === 1;
+  for (let ty = ty0; ty <= ty1; ty++) {
+    for (let tx = tx0; tx <= tx1; tx++) {
+      const i = ty * world.w + tx;
+      if (!world.tilled[i]) continue;
+      const m = (tilledAt(tx, ty - 1) ? 1 : 0) | (tilledAt(tx + 1, ty) ? 2 : 0) | (tilledAt(tx, ty + 1) ? 4 : 0) | (tilledAt(tx - 1, ty) ? 8 : 0);
+      ctx.drawImage((world.watered[i] ? S.soilWet : S.soilDry)[m], tx * TILE, ty * TILE);
+    }
+  }
+  if (world.indoor) windowBeams(ctx, world, f.dayNight, true);
+
+  if (sun.strength > 0.01 && outdoor) {
     shadowCtx.setTransform(1, 0, 0, 1, 0, 0);
     shadowCtx.clearRect(0, 0, v.w, v.h);
     for (const c of casters) {
@@ -375,7 +423,7 @@ sun: SunState)
     ctx.globalAlpha = 1;
     base();
   }
-  ctx.fillStyle = world.dark ? 'rgba(4,2,10,0.5)' : 'rgba(10,18,34,0.32)';
+  ctx.fillStyle = world.dark ? 'rgba(4,2,10,0.5)' : world.indoor ? 'rgba(20,10,20,0.35)' : 'rgba(10,18,34,0.32)';
   for (const [x, y, rx, ry] of contact) {
     ctx.beginPath();
     ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
@@ -383,192 +431,28 @@ sun: SunState)
   }
 
   drawTarget(ctx, g);
-
   items.sort((a, b) => a.y - b.y);
   for (const d of items) d.draw();
-
+  base();
+  if (world.indoor) windowBeams(ctx, world, f.dayNight, false);
   drawFishing(ctx, g);
   drawParticles(ctx, g.particles.list, t, lights);
-  if ((night > 0.3 || world.dark) && g.mode !== 'title') lights.push({ x: player.x, y: player.y - 10, r: world.dark ? 92 : 64, a: world.dark ? 0.95 : night * 0.42, kind: 'warm' });
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  return lights;
-}
+  drawLifeOverlay(ctx, g);
 
-function drawTarget(ctx: CanvasRenderingContext2D, g: FarmGame): void {
-  if (g.mode !== 'play' || !g.target || g.fishing || g.player.action) return;
-  const st = g.inv[g.selected];
-  if (st && st.id === 'sword') return;
-  const tiles = lineTiles(g, g.target.x, g.target.y, st ? st.id : '');
-  const a = 0.6 + Math.sin(g.elapsed * 5) * 0.15;
-  for (const { x, y } of tiles) {
-    const px = x * TILE;
-    const py = y * TILE;
-    ctx.fillStyle = 'rgba(255,240,200,0.1)';
-    ctx.fillRect(px, py, TILE, TILE);
-    ctx.fillStyle = `rgba(255,244,214,${a})`;
-    ctx.fillRect(px, py, 3, 1);
-    ctx.fillRect(px, py, 1, 3);
-    ctx.fillRect(px + 13, py, 3, 1);
-    ctx.fillRect(px + 15, py, 1, 3);
-    ctx.fillRect(px, py + 15, 3, 1);
-    ctx.fillRect(px, py + 13, 1, 3);
-    ctx.fillRect(px + 13, py + 15, 3, 1);
-    ctx.fillRect(px + 15, py + 13, 1, 3);
-  }
-  if (st && getItem(st.id).kind === 'placeable' && g.world.id === 'farm') {
-    ctx.globalAlpha = 0.5;
-    ctx.drawImage(getIconCanvas(st.id), g.target.x * TILE, g.target.y * TILE - 1);
-    ctx.globalAlpha = 1;
-  }
-}
-
-function drawPlayer(ctx: CanvasRenderingContext2D, g: FarmGame, bank: SpriteBank, f: number): void {
-  const pl = g.player;
-  const frames = bank.shared.player[pl.dir];
-  const x = Math.round(pl.x);
-  const y = Math.round(pl.y);
-  const holding = !!pl.action || !!g.fishing;
-  const behind = holding && pl.dir === 'up';
-  if (pl.invuln > 0 && Math.floor(g.elapsed * 20) % 2 === 0) ctx.globalAlpha = 0.45;
-  if (behind) drawTool(ctx, g, x, y);
-  ctx.drawImage(frames[f], x - 10, y - 26);
-  if (holding && !behind) drawTool(ctx, g, x, y);
-  ctx.globalAlpha = 1;
-}
-
-function drawTool(ctx: CanvasRenderingContext2D, g: FarmGame, x: number, y: number): void {
-  const pl = g.player;
-  const act = pl.action;
-  const id = act ? act.tool : 'rod';
-  const icon = getIconCanvas(id);
-  const p = act ? Math.min(1, act.t / act.dur) : 1;
-  const e = 1 - Math.pow(1 - p, 3);
-  let hx = x;
-  let hy = y - 12;
-  let flip = false;
-  if (pl.dir === 'right') hx = x + 3;else
-  if (pl.dir === 'left') {
-    hx = x - 3;
-    flip = true;
-  } else if (pl.dir === 'down') hx = x + 4;else
-  {
-    hx = x - 4;
-    hy = y - 16;
-    flip = true;
-  }
-  let ang = pl.dir === 'down' || pl.dir === 'up' ? -1.6 + e * 2.2 : -2.0 + e * 2.4;
-  if (id === 'sword') ang = -2.3 + e * 3.0;
-  if (id === 'can') ang = -0.4 + e * 0.9;
-  if (id === 'rod' && !act) ang = 0.1;
-  ctx.save();
-  ctx.translate(hx, hy);
-  if (flip) ctx.scale(-1, 1);
-  ctx.rotate(ang);
-  ctx.drawImage(icon, -3, -13);
-  if (id === 'sword' && p > 0.2 && p < 0.9) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(0, 0, 13, -2.6, -1.0);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-function drawFishing(ctx: CanvasRenderingContext2D, g: FarmGame): void {
-  const f = g.fishing;
-  if (!f) return;
-  const pl = g.player;
-  const tips: Record<string, [number, number]> = { right: [12, -22], left: [-12, -22], down: [9, -14], up: [-9, -28] };
-  const [ox, oy] = tips[pl.dir];
-  const sx = Math.round(pl.x) + ox;
-  const sy = Math.round(pl.y) + oy;
-  const bite = f.phase === 'bite';
-  const bob = bite ? 1 + Math.round(Math.sin(g.elapsed * 30)) : Math.round(Math.sin(g.elapsed * 3) * 0.6);
-  const bx = Math.round(f.bx);
-  const by = Math.round(f.by) + bob;
-  ctx.strokeStyle = 'rgba(240,236,220,0.75)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(sx + 0.5, sy + 0.5);
-  ctx.quadraticCurveTo((sx + bx) / 2, Math.max(sy, by) + 6, bx + 0.5, by + 0.5);
-  ctx.stroke();
-  ctx.fillStyle = '#f4f1e8';
-  ctx.fillRect(bx - 1, by - 2, 2, 1);
-  ctx.fillStyle = '#ff3d3d';
-  ctx.fillRect(bx - 1, by - 1, 2, 2);
-  if (bite) {
-    ctx.fillStyle = '#fff3c4';
-    ctx.fillRect(bx, by - 12, 1, 5);
-    ctx.fillRect(bx, by - 6, 1, 1);
-  }
-}
-
-function drawParticles(ctx: CanvasRenderingContext2D, list: Particle[], t: number, lights: LightSource[]): void {
-  for (const p of list) {
-    const a = Math.min(1, p.life / p.max * 2);
-    const x = Math.round(p.x);
-    const y = Math.round(p.y - p.z);
-    ctx.globalAlpha = a;
-    switch (p.kind) {
-      case 'chip':
-      case 'drop':
-      case 'dust':
-        ctx.fillStyle = p.color;
-        ctx.fillRect(x, y, p.size, p.size);
-        break;
-      case 'leaf':
-      case 'petal':{
-          ctx.fillStyle = p.color;
-          const flat = Math.sin(p.seed + t * 6) > 0;
-          ctx.fillRect(x, y, flat ? 2 : 1, flat ? 1 : 2);
-          break;
-        }
-      case 'spark':
-        ctx.fillStyle = p.color;
-        ctx.fillRect(x, y, 1, 1);
-        if (p.life > p.max * 0.5) {
-          ctx.globalAlpha = a * 0.5;
-          ctx.fillRect(x - 1, y, 3, 1);
-          ctx.fillRect(x, y - 1, 1, 3);
-        }
-        lights.push({ x: p.x, y: p.y - p.z, r: 8, a: a * 0.6, kind: 'warm' });
-        break;
-      case 'smoke':
-        ctx.globalAlpha = a * 0.3;
-        ctx.fillStyle = p.color;
-        ctx.beginPath();
-        ctx.arc(p.x, p.y - p.z, p.size, 0, Math.PI * 2);
-        ctx.fill();
-        break;
-      case 'firefly':{
-          const pulse = 0.5 + 0.5 * Math.sin(t * 3 + p.seed);
-          ctx.globalAlpha = a * pulse;
-          ctx.fillStyle = '#efffa8';
-          ctx.fillRect(x, y, 1, 1);
-          lights.push({ x: p.x, y: p.y - p.z, r: 11, a: a * pulse * 0.9, kind: 'green' });
-          break;
-        }
-      case 'mote':
-        ctx.globalAlpha = a * 0.6;
-        ctx.fillStyle = p.color;
-        ctx.fillRect(x, y, 1, 1);
-        break;
-      case 'ripple':
-      case 'splash':{
-          const k = 1 - p.life / p.max;
-          const r = (p.kind === 'ripple' ? 7 : 2.5) * k + 1;
-          ctx.globalAlpha = (1 - k) * 0.7;
-          ctx.strokeStyle = '#dff6ff';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.ellipse(p.x, p.y, r, r * 0.45, 0, 0, Math.PI * 2);
-          ctx.stroke();
-          break;
-        }
+  if (outdoor) {
+    const n = lights.length;
+    for (let k = 0; k < n; k++) {
+      const l = lights[k];
+      if (l.base === undefined) continue;
+      const my = 2 * l.base - l.y;
+      const mtx = Math.floor(l.x / TILE);
+      const mty = Math.floor(my / TILE);
+      if (mtx >= 0 && mty >= 0 && mtx < world.w && mty < world.h && world.ground[mty * world.w + mtx] === 'water') lights.push({ x: l.x, y: my, r: l.r * 0.75, a: l.a * 0.5, kind: l.kind });
     }
   }
-  ctx.globalAlpha = 1;
+  if ((night > 0.3 || world.dark) && g.mode !== 'title' && !world.indoor) lights.push({ x: player.x, y: player.y - 10, r: world.dark ? 92 : 64, a: world.dark ? 0.95 : night * 0.42, kind: 'warm' });
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  return lights;
 }
 
 export function drawLights(lctx: CanvasRenderingContext2D, bank: SpriteBank, v: ViewRect, lights: LightSource[]): void {

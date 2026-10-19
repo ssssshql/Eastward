@@ -20,7 +20,6 @@ export function BoardPanel({ snap, onDeliver, onClose }: BoardPanelProps) {
     <Modal title="委托板" subtitle="居民们张贴的请求，每天都会更新。完成可获得金币和好感。" onClose={onClose} className="w-[680px]">
       {snap.requests.length === 0 ?
       <p className="px-7 py-8 text-sm text-cream-dim">今天没有新的委托，明天再来看看吧。</p> :
-
       <ul className="grid gap-3 px-7 py-5">
           {snap.requests.map((r) => {
           const def = npcDef(r.npc);

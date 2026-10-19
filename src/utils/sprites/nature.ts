@@ -36,6 +36,10 @@ interface Blob {
   z: number;
 }
 
+/**
+ * Paints clustered foliage. Each blob is a leaf clump with a crisp lit rim on its upper-left,
+ * a dark underside, and posterised dapples — the chunky, readable canopy style of Eastward.
+ */
 function paintBlobs(p: Px, blobs: Blob[], pal: RGB[], seed: number): void {
   let minY = Infinity;
   let maxY = -Infinity;
@@ -43,12 +47,14 @@ function paintBlobs(p: Px, blobs: Blob[], pal: RGB[], seed: number): void {
     minY = Math.min(minY, b.y - b.r);
     maxY = Math.max(maxY, b.y + b.r);
   }
+  const top = pal.length - 1;
   for (let y = Math.max(0, Math.floor(minY)); y < Math.min(p.h, Math.ceil(maxY) + 1); y++) {
     for (let x = 0; x < p.w; x++) {
       let bh = -1e9;
       let nx = 0;
       let ny = 0;
       let nz = 0;
+      let d2b = 0;
       let hit = false;
       for (const b of blobs) {
         const dx = (x + 0.5 - b.x) / b.r;
@@ -62,15 +68,20 @@ function paintBlobs(p: Px, blobs: Blob[], pal: RGB[], seed: number): void {
           nx = dx;
           ny = dy;
           nz = z;
+          d2b = d2;
           hit = true;
         }
       }
       if (!hit) continue;
       let li = nx * -0.5 + ny * -0.68 + nz * 0.53;
-      li -= (y - minY) / (maxY - minY) * 0.5;
-      li += (hash2(x >> 1, y >> 1, seed) - 0.5) * 0.4 + (valueNoise(x * 0.45, y * 0.45, seed) - 0.5) * 0.5;
+      li -= (y - minY) / (maxY - minY) * 0.55;
+      li += (hash2(x >> 1, y >> 1, seed) - 0.5) * 0.35 + (valueNoise(x * 0.5, y * 0.5, seed) - 0.5) * 0.55;
       let idx = Math.floor((li + 0.9) / 2 * pal.length);
-      idx = idx < 0 ? 0 : idx >= pal.length ? pal.length - 1 : idx;
+      idx = idx < 0 ? 0 : idx > top ? top : idx;
+      // Lit rim on each clump's upper-left edge.
+      if (d2b > 0.62 && -nx * 0.6 - ny * 0.8 > 0.42) idx = Math.min(top, idx + 2);
+      // Deep occluded underside where clumps overlap.
+      if (d2b > 0.7 && ny > 0.45) idx = Math.max(0, idx - 1);
       p.set(x, y, pal[idx]);
     }
   }
@@ -89,25 +100,28 @@ function snowCap(p: Px, seed: number): void {
 }
 
 function paintTrunk(p: Px, topY: number, seed: number): void {
-  const bark = ramp(BARK, 5, 0.6, 0.4);
+  const bark = ramp(BARK, 6, 0.65, 0.42);
   const ph = seed % 10 * 0.6;
   for (let y = topY; y <= 61; y++) {
     const t = (y - topY) / (61 - topY);
     let w = 2.6 + t * 1.4;
-    if (y > 55) w += (y - 55) * 0.75;
+    if (y > 55) w += (y - 55) * 0.85;
     const cx = 24 + Math.sin(y * 0.18 + ph) * 0.8;
     for (let x = Math.floor(cx - w - 1); x <= Math.ceil(cx + w + 1); x++) {
       const u = (x + 0.5 - cx) / w;
       if (Math.abs(u) > 1) continue;
-      let li = 2.4 - u * 1.5 + (hash2(x * 3, Math.floor(y / 3) + x, seed) - 0.5) * 0.7;
+      let li = 2.8 - u * 1.8 + (hash2(x * 3, Math.floor(y / 3) + x, seed) - 0.5) * 0.7;
       if (hash2(x, Math.floor(y / 4), seed + 1) < 0.2) li -= 1;
+      if (u < -0.6) li += 0.6;
       p.set(x, y, pick(bark, li));
     }
   }
+  // Root flare moss on the shaded side.
+  for (let x = 20; x <= 29; x++) if (hash2(x, 7, seed) < 0.45) p.set(x, 60 - Math.floor(hash2(x, 8, seed) * 3), MOSS[2]);
 }
 
 function paintPine(p: Px, season: Season, seed: number): void {
-  const pal = ramp(PINE[season], 6, 0.7, 0.45);
+  const pal = ramp(PINE[season], 7, 0.72, 0.5);
   for (let y = 0; y < 50; y++) {
     for (let x = 0; x < 48; x++) {
       for (let k = 0; k < 4; k++) {
@@ -120,8 +134,9 @@ function paintPine(p: Px, season: Season, seed: number): void {
         const dx = x + 0.5 - 24;
         if (Math.abs(dx) > hw + jag) continue;
         const u = dx / hw;
-        let li = 2.8 - u * 1.4 + (0.5 - ty) * 1.6 + (hash2(x, y, seed + 3) - 0.5) * 0.9;
-        if (ty > 0.88) li -= 1;
+        let li = 3.2 - u * 1.6 + (0.5 - ty) * 1.8 + (hash2(x, y, seed + 3) - 0.5) * 0.9;
+        if (ty > 0.86) li -= 1.4;
+        if (u < -0.7 && ty < 0.8) li += 1;
         let c = pick(pal, li);
         if (season === 'winter' && ty < 0.45 && hash2(x, y, seed + 4) < 0.85 - ty) c = pick(SNOW, 2 + (u < 0 ? 1 : 0));
         p.set(x, y, c);
@@ -137,23 +152,24 @@ export function buildTree(variant: number, season: Season, seed: number): TreeSp
   const r = rng(seed + variant * 977);
   const trunk = new Px(48, 64);
   paintTrunk(trunk, type === 1 ? 44 : 30, seed + variant);
-  trunk.outline(0.6);
+  trunk.outline(0.8);
   const can = new Px(48, 64);
   if (type === 1) {
     paintPine(can, season, seed + variant);
   } else {
     const base = type === 2 ? BLOSSOM[season] : LEAF[season][k];
     const blobs: Blob[] = [{ x: 24, y: 25, r: 13.5, z: 0 }];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 12; i++) {
       const a = r() * Math.PI * 2;
       const d = 0.5 + r() * 0.45;
-      blobs.push({ x: 24 + Math.cos(a) * 12 * d, y: 22 + Math.sin(a) * 9 * d, r: 6 + r() * 4.5, z: Math.sin(a) * 5 + 2 });
+      blobs.push({ x: 24 + Math.cos(a) * 12.5 * d, y: 22 + Math.sin(a) * 9 * d, r: 5.5 + r() * 4.5, z: Math.sin(a) * 5 + 2 });
     }
     blobs.push({ x: 20 + r() * 8, y: 12, r: 8.5, z: -3 });
-    paintBlobs(can, blobs, ramp(base, 6, 0.7, 0.5), seed + variant);
+    blobs.push({ x: 14 + r() * 4, y: 17, r: 6, z: -1 });
+    paintBlobs(can, blobs, ramp(base, 7, 0.75, 0.55), seed + variant);
     if (type === 2 && season !== 'winter') {
       const dot = season === 'spring' ? ramp('#fff1f5', 3, 0.3, 0.2) : season === 'summer' ? ramp('#e2463f', 3, 0.5, 0.4) : ramp('#f0c64a', 3);
-      for (let i = 0; i < 26; i++) {
+      for (let i = 0; i < 30; i++) {
         const x = Math.floor(6 + r() * 36);
         const y = Math.floor(6 + r() * 30);
         if (can.alpha(x, y) < 200) continue;
@@ -167,7 +183,7 @@ export function buildTree(variant: number, season: Season, seed: number): TreeSp
     }
     if (season === 'winter') snowCap(can, seed + variant);
   }
-  can.outline(0.62);
+  can.outline(0.82);
   return { trunk: trunk.canvas(), canopy: can.canvas() };
 }
 
@@ -194,7 +210,7 @@ export function buildStump(variant: number, season: Season): HTMLCanvasElement {
       p.set(x, y, c);
     }
   }
-  p.outline(0.6);
+  p.outline(0.75);
   return p.canvas();
 }
 
@@ -202,7 +218,7 @@ export function buildRock(variant: number, season: Season, seed: number): HTMLCa
   const p = new Px(18, 16);
   const big = variant === 1;
   const R = variant === 2 ? 4.8 : big ? 6.6 : 5.9;
-  const pal = ramp(variant >= 3 ? '#6e6680' : '#8d929f', 6, 0.68, 0.45);
+  const pal = ramp(variant >= 3 ? '#6e6680' : '#8d929f', 6, 0.7, 0.48);
   const cx = 9;
   const cy = 9.6 - (big ? 0.5 : 0);
   const sp = seed % 5 + variant;
@@ -218,7 +234,7 @@ export function buildRock(variant: number, season: Season, seed: number): HTMLCa
       const ny = dy / rr;
       const nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
       const facet = Math.floor((a + Math.PI) / (Math.PI / 3));
-      let li = (-nx * 0.5 - ny * 0.7 + nz * 0.5) * 2.2 + 2.6 + (hash2(facet, variant, 4) - 0.5) * 0.9 + (hash2(x, y, seed) - 0.5) * 0.4;
+      let li = (-nx * 0.5 - ny * 0.7 + nz * 0.5) * 2.4 + 2.6 + (hash2(facet, variant, 4) - 0.5) * 0.9 + (hash2(x, y, seed) - 0.5) * 0.4;
       if (y === 13) li -= 1;
       let c = pick(pal, li);
       if (ny < -0.45 && season !== 'winter' && variant < 3 && hash2(x, y, seed + 1) < 0.55) c = pick(MOSS, li - 1);
@@ -238,7 +254,7 @@ export function buildRock(variant: number, season: Season, seed: number): HTMLCa
       p.set(sx, sy + 1, cr[1]);
     }
   }
-  p.outline(0.6);
+  p.outline(0.78);
   return p.canvas();
 }
 
@@ -265,14 +281,14 @@ export function buildWeed(variant: number, season: Season, seed: number): HTMLCa
     const fl = ramp('#f2e6a0', 4);
     for (const [x, y] of tips.slice(0, 2)) p.ball(x, y, 1.3, 1.3, fl);
   }
-  p.outline(0.5);
+  p.outline(0.65);
   return p.canvas();
 }
 
 export function buildTuft(variant: number, season: Season): HTMLCanvasElement {
   const p = new Px(10, 10);
   const r = rng(variant * 13 + 5);
-  const pal = ramp(season === 'winter' ? '#b9b49a' : GRASS[season], 6, 0.55, 0.45);
+  const pal = ramp(season === 'winter' ? '#b9b49a' : GRASS[season], 6, 0.6, 0.5);
   const n = 3 + variant % 2;
   for (let i = 0; i < n; i++) {
     const bx = 5 + (r() - 0.5) * 5;
@@ -280,7 +296,7 @@ export function buildTuft(variant: number, season: Season): HTMLCanvasElement {
     const lean = (r() - 0.5) * 3;
     for (let s = 0; s <= h; s += 0.5) {
       const t = s / h;
-      p.set(bx + lean * t * t, 9.5 - s, pick(pal, 1.2 + t * 3.8));
+      p.set(bx + lean * t * t, 9.5 - s, pick(pal, 1.2 + t * 4));
     }
   }
   return p.canvas();
@@ -300,7 +316,7 @@ export function buildFlower(variant: number, season: Season): HTMLCanvasElement 
   p.set(3, 2, pet[3]);
   p.set(3, 4, pet[1]);
   p.set(3, 3, [246, 214, 90]);
-  p.outline(0.5);
+  p.outline(0.6);
   return p.canvas();
 }
 
@@ -308,11 +324,11 @@ export function buildBush(variant: number, season: Season, seed: number): HTMLCa
   const p = new Px(26, 22);
   const r = rng(seed + 400 + variant);
   const blobs: Blob[] = [{ x: 13, y: 13, r: 8, z: 0 }];
-  for (let i = 0; i < 5; i++) {
+  for (let i = 0; i < 6; i++) {
     const a = r() * Math.PI * 2;
     blobs.push({ x: 13 + Math.cos(a) * 5, y: 12 + Math.sin(a) * 3.5, r: 4 + r() * 2.5, z: Math.sin(a) * 3 });
   }
-  paintBlobs(p, blobs, ramp(LEAF[season][variant % 3], 6, 0.7, 0.5), seed + 400 + variant);
+  paintBlobs(p, blobs, ramp(LEAF[season][variant % 3], 7, 0.75, 0.55), seed + 400 + variant);
   if (season === 'summer' || season === 'autumn') {
     const berry = ramp(season === 'summer' ? '#5a7fd6' : '#d0473f', 3);
     for (let i = 0; i < 6; i++) {
@@ -325,6 +341,6 @@ export function buildBush(variant: number, season: Season, seed: number): HTMLCa
     }
   }
   if (season === 'winter') snowCap(p, seed + variant);
-  p.outline(0.6);
+  p.outline(0.8);
   return p.canvas();
 }

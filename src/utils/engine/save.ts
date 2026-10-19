@@ -82,6 +82,7 @@ export function worldFromSave(d: SaveData): World {
     id: 'farm',
     name: MAP_NAMES.farm,
     dark: false,
+    indoor: false,
     floor: 0,
     w: d.w,
     h: d.h,
@@ -94,7 +95,8 @@ export function worldFromSave(d: SaveData): World {
     structures: d.structures,
     warps: d.warps ?? [],
     blocked: new Int16Array(n).fill(-1),
-    decor: d.decor
+    decor: d.decor,
+    rugs: []
   };
   rebuildBlocked(world);
   return world;

@@ -1,13 +1,14 @@
-import type { Crop, Prompt, WorldObject } from '../../types/game';
+import type { Crop, Prompt, Structure, WorldObject } from '../../types/game';
 import type { FarmGame, InputState, Target } from './FarmGame';
 import { REACH, TILE } from './constants';
-import { inBounds, isWater, makeObj } from './world';
+import { ENTERABLE, inBounds, isWater, makeObj } from './world';
 import { getCrop, getItem, isSellable } from '../items';
 import { fishList } from '../../data/fish';
 import { processing } from '../../data/recipes';
 import { animalNear, hitMonsters, npcDef, npcNear } from './entities';
 import { giveGift, talkTo } from './social';
 import { shipSlot } from './economy';
+import { interactVisitor, visitorNear } from './life';
 
 export const DIRV: Record<string, [number, number]> = { down: [0, 1], up: [0, -1], left: [-1, 0], right: [1, 0] };
 
@@ -19,6 +20,15 @@ const GREEN = ['#6ac84f', '#3f9a3f', '#a6e070'];
 const SPARK = ['#fff3c4', '#ffd66b', '#ffffff'];
 const ORE_DROP: Record<number, [string, number, number]> = { 3: ['quartz', 1, 2], 4: ['copper_ore', 1, 3], 5: ['iron_ore', 1, 2], 6: ['gold_ore', 1, 2], 7: ['amethyst', 1, 1] };
 const ORE_COLOR: Record<number, string[]> = { 3: ['#e7d4ff', '#c9a8f5'], 4: ['#ff9a4a', '#ffd0a0'], 5: ['#e8f0ff', '#b8c8dc'], 6: ['#ffe066', '#fff3b0'], 7: ['#6ff6e2', '#c0fff4'] };
+
+const ENTER_LABELS: Record<string, string> = {
+  house: '进屋',
+  coop: '进入鸡舍',
+  store: '进入杂货铺',
+  smith: '进入铁匠铺',
+  tavern: '进入灯湖酒馆',
+  cottage: '拜访小屋'
+};
 
 export function isMature(c: Crop): boolean {
   return c.age >= getCrop(c.id).days;
@@ -63,17 +73,14 @@ function face(g: FarmGame, t: Target): void {
   g.player.dir = Math.abs(dx) > Math.abs(dy) ? dx > 0 ? 'right' : 'left' : dy > 0 ? 'down' : 'up';
 }
 
-function targetObj(g: FarmGame): {o: WorldObject;i: number;} | null {
-  const t = g.target;
-  if (!t || !inBounds(g.world, t.x, t.y)) return null;
-  const i = t.y * g.world.w + t.x;
-  const o = g.world.objects[i];
-  return o ? { o, i } : null;
-}
-
 /** Things you can talk to / interact with take priority over tool use. */
 function tryInteractables(g: FarmGame): boolean {
   const [fx, fy] = facePoint(g);
+  const vis = visitorNear(g, fx, fy, 16);
+  if (vis) {
+    interactVisitor(g, vis);
+    return true;
+  }
   const npc = npcNear(g, fx, fy, 16);
   if (npc) {
     const st = g.inv[g.selected];
@@ -109,43 +116,64 @@ function tryInteractables(g: FarmGame): boolean {
     return true;
   }
   if (w.blocked[i] >= 0) {
-    useStructure(g, w.structures[w.blocked[i]].kind);
-    return true;
+    return useStructure(g, w.structures[w.blocked[i]]);
   }
   return false;
 }
 
-function useStructure(g: FarmGame, kind: string): void {
-  switch (kind) {
-    case 'house':
+function useFurniture(g: FarmGame, s: Structure): boolean {
+  switch (s.use) {
+    case 'sleep':
       g.mode = 'sleep';
-      break;
+      return true;
+    case 'store':
+      g.mode = 'store';
+      return true;
+    case 'smith':
+      g.mode = 'smith';
+      return true;
+    case 'tavern':
+      g.mode = 'tavern';
+      return true;
+    case 'coop':{
+        const ready = g.animals.filter((a) => a.ready).length;
+        g.toast(g.animals.length ? `鸡舍里住着 ${g.animals.length} 只动物，${ready} 份产物待收集` : '鸡舍还空着，去镇上的杂货铺买只小鸡吧', 'info');
+        return true;
+      }
+    case 'note':
+      if (s.note) g.toast(s.note, 'info');
+      return true;
+    default:
+      return false;
+  }
+}
+
+function useStructure(g: FarmGame, s: Structure): boolean {
+  if (s.kind === 'furniture') {
+    const used = useFurniture(g, s);
+    g.dirty = true;
+    return used;
+  }
+  if (ENTERABLE.includes(s.kind)) {
+    g.enterBuilding(s);
+    return true;
+  }
+  switch (s.kind) {
     case 'bin':
       shipSlot(g, g.selected);
       break;
-    case 'store':
     case 'cart':
       g.mode = 'store';
-      break;
-    case 'smith':
-      g.mode = 'smith';
-      break;
-    case 'tavern':
-      g.mode = 'tavern';
       break;
     case 'board':
       g.mode = 'board';
       break;
-    case 'coop':{
-        const ready = g.animals.filter((a) => a.ready).length;
-        g.toast(g.animals.length ? `鸡舍里住着 ${g.animals.length} 只动物，${ready} 份产物待收集` : '鸡舍还空着，去镇上的杂货铺买只小鸡吧', 'info');
-        break;
-      }
     case 'fountain':
       g.toast('你往喷泉里许了个愿……水面泛起了金色的光', 'good');
       break;
   }
   g.dirty = true;
+  return true;
 }
 
 function useJar(g: FarmGame, o: WorldObject): void {
@@ -185,6 +213,10 @@ export function actWithSelected(g: FarmGame): void {
   if (!st || !def) return;
   switch (def.kind) {
     case 'tool':
+      if (g.world.indoor) {
+        g.toast('在屋里可别乱挥工具', 'info');
+        return;
+      }
       if (g.energy <= 0) {
         g.toast('太累了……先吃点东西或回家休息吧', 'warn');
         return;
@@ -533,6 +565,12 @@ export function computePrompt(g: FarmGame): Prompt | null {
   if (g.fishing) return g.fishing.phase === 'bite' ? { key: '空格', text: '上钩了！快收线' } : { key: '空格', text: '收回鱼线' };
   const st = g.inv[g.selected];
   const [fx, fy] = facePoint(g);
+  const vis = visitorNear(g, fx, fy, 16);
+  if (vis) {
+    if (vis.id === 'cat') return { key: 'E', text: vis.gifted ? '小猫在打盹' : '摸摸小猫' };
+    if (st && getItem(st.id).kind === 'food' && !vis.gifted) return { key: 'E', text: `把${getItem(st.id).name}分给流浪汉` };
+    return { key: 'E', text: '和流浪汉聊聊' };
+  }
   const npc = npcNear(g, fx, fy, 16);
   if (npc) {
     const name = npcDef(npc.id).name;
@@ -556,19 +594,12 @@ export function computePrompt(g: FarmGame): Prompt | null {
   }
   const si = w.blocked[i];
   if (si >= 0) {
-    const labels: Record<string, string> = {
-      house: '回家休息',
-      store: '进入杂货铺',
-      cart: '看看种子摊',
-      smith: '进入铁匠铺',
-      tavern: '进入灯湖酒馆',
-      board: '查看委托板',
-      coop: '查看鸡舍',
-      fountain: '许个愿'
-    };
-    const kind = w.structures[si].kind;
-    if (kind === 'bin') return st && isSellable(st.id) ? { key: 'E', text: `出货 ${getItem(st.id).name} ×${st.qty}` } : { key: 'E', text: '出货箱 · 手持要卖的物品' };
-    if (labels[kind]) return { key: 'E', text: labels[kind] };
+    const s = w.structures[si];
+    if (s.kind === 'furniture') return s.label ? { key: 'E', text: s.label } : null;
+    if (ENTER_LABELS[s.kind]) return { key: 'E', text: ENTER_LABELS[s.kind] };
+    const labels: Record<string, string> = { cart: '看看种子摊', board: '查看委托板', fountain: '许个愿' };
+    if (s.kind === 'bin') return st && isSellable(st.id) ? { key: 'E', text: `出货 ${getItem(st.id).name} ×${st.qty}` } : { key: 'E', text: '出货箱 · 手持要卖的物品' };
+    if (labels[s.kind]) return { key: 'E', text: labels[s.kind] };
   }
   if (!st) return null;
   if (st.id === 'can' && w.ground[i] === 'water') return { key: '空格', text: '灌满水壶' };

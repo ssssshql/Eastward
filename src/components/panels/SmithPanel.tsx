@@ -23,14 +23,7 @@ export function SmithPanel({ snap, onSmelt, onUpgrade, onClose }: SmithPanelProp
   const count = (id: string) => snap.inventory.reduce((a, s) => a + (s && s.id === id ? s.qty : 0), 0);
   return (
     <Modal title="老顾的铁匠铺" subtitle="“……矿石拿来，我给你打。”" onClose={onClose} className="w-[700px]" aside={<Coins value={snap.money} className="text-xl font-black text-amber" />}>
-      <Tabs<Tab>
-        tabs={[
-        { id: 'smelt', label: '熔炼' },
-        { id: 'upgrade', label: '工具升级' }]
-        }
-        value={tab}
-        onChange={setTab} />
-      
+      <Tabs<Tab> tabs={[{ id: 'smelt', label: '熔炼' }, { id: 'upgrade', label: '工具升级' }]} value={tab} onChange={setTab} />
       <ul className="divide-y divide-cream/10 px-7 py-3">
         {tab === 'smelt' &&
         smeltDefs.map((s) => {
@@ -43,7 +36,6 @@ export function SmithPanel({ snap, onSmelt, onUpgrade, onClose }: SmithPanelProp
                   熔炼
                 </button>
               </ShopRow>);
-
         })}
         {tab === 'upgrade' &&
         TOOLS.map((id) => {
@@ -57,7 +49,6 @@ export function SmithPanel({ snap, onSmelt, onUpgrade, onClose }: SmithPanelProp
                     满级
                   </span>
                 </ShopRow>);
-
           }
           const ok = snap.money >= u.price && u.bars.every((b) => count(b.id) >= b.qty);
           return (
@@ -67,7 +58,6 @@ export function SmithPanel({ snap, onSmelt, onUpgrade, onClose }: SmithPanelProp
                   升级
                 </button>
               </ShopRow>);
-
         })}
       </ul>
     </Modal>);

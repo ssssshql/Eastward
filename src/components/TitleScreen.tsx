@@ -1,5 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { Maximize2Icon, Minimize2Icon } from 'lucide-react';
+import { useFullscreen } from '../hooks/useFullscreen';
 
 interface TitleScreenProps {
   hasSave: boolean;
@@ -9,25 +11,36 @@ interface TitleScreenProps {
 
 const EASE = [0.23, 1, 0.32, 1] as const;
 
-const FEATURES = ['三张地图 · 农场 / 灯湖镇 / 无尽矿洞', '四位居民 · 好感与回礼', '养殖 · 加工 · 委托 · 战斗'];
+const FEATURES = ['农场 · 灯湖镇 · 无尽矿洞', '每栋房屋都能走进去', '镜面湖水 · 昼夜光影', '养殖 · 加工 · 委托 · 战斗'];
 
 export function TitleScreen({ hasSave, onNew, onContinue }: TitleScreenProps) {
+  const fs = useFullscreen();
+  const FsIcon = fs.isFullscreen ? Minimize2Icon : Maximize2Icon;
   return (
     <motion.div className="absolute inset-0 z-20 flex items-end" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3, ease: EASE }}>
       <div className="absolute inset-x-0 bottom-0 h-[58%] bg-ink/55" aria-hidden="true" />
+      {fs.supported &&
+      <button
+        type="button"
+        onClick={() => void fs.toggle()}
+        className="btn-wood absolute right-4 top-4 z-10 flex items-center gap-1.5 rounded-md bg-wood px-3 py-1.5 text-sm font-bold text-cream"
+        style={{ marginTop: 'env(safe-area-inset-top, 0px)', marginRight: 'env(safe-area-inset-right, 0px)' }}>
+          <FsIcon className="h-4 w-4" aria-hidden="true" />
+          {fs.isFullscreen ? '退出全屏' : '全屏'}
+        </button>
+      }
       <motion.div
-        className="relative mb-[9vh] ml-[7vw] flex w-full max-w-5xl items-end justify-between gap-12 pr-[7vw] text-cream"
+        className="relative mb-[6vh] flex w-full max-w-5xl flex-col gap-6 px-6 text-cream sm:mb-[9vh] sm:ml-[7vw] sm:flex-row sm:items-end sm:justify-between sm:gap-12 sm:pl-0 sm:pr-[7vw]"
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1, ease: EASE }}>
-        
         <div>
           <p className="text-xs font-bold tracking-[0.5em] text-amber">MISTVALE</p>
-          <h1 className="title-shadow mt-3 text-[88px] font-black leading-none tracking-tight">雾谷农场</h1>
-          <p className="mt-5 max-w-md text-base leading-relaxed text-cream/85">山那边的老农场交到了你手里。白天耕种养殖，傍晚去镇上的酒馆听居民闲聊，深夜举着灯下到矿洞最深处。</p>
-          <ul className="mt-6 flex flex-wrap gap-2">
+          <h1 className="title-shadow mt-3 text-5xl font-black leading-none tracking-tight sm:text-6xl lg:text-[88px]">雾谷农场</h1>
+          <p className="mt-4 hidden max-w-md text-base leading-relaxed text-cream/85 sm:block">山那边的老农场交到了你手里。白天耕种养殖，傍晚推门走进镇上的酒馆听居民闲聊，深夜举着灯下到矿洞最深处。</p>
+          <ul className="mt-4 flex flex-wrap gap-2 sm:mt-6">
             {FEATURES.map((f) =>
-            <li key={f} className="rounded-full border border-cream/20 px-3 py-1 text-xs text-cream/80">
+            <li key={f} className="rounded-md border-2 border-wood-ink bg-wood-lo/80 px-3 py-1 text-xs text-cream">
                 {f}
               </li>
             )}
@@ -39,8 +52,7 @@ export function TitleScreen({ hasSave, onNew, onContinue }: TitleScreenProps) {
             type="button"
             autoFocus
             onClick={onContinue}
-            className="w-60 rounded-xl bg-amber py-3.5 text-lg font-black text-ink transition-colors duration-150 hover:bg-cream focus:outline-none focus-visible:ring-2 focus-visible:ring-cream focus-visible:ring-offset-2 focus-visible:ring-offset-ink">
-            
+            className="btn-wood w-60 rounded-lg bg-amber py-3 text-lg font-black text-parch-ink hover:bg-[#ffc76a] focus:outline-none focus-visible:ring-2 focus-visible:ring-cream">
               继续经营
             </button>
           }
@@ -48,13 +60,13 @@ export function TitleScreen({ hasSave, onNew, onContinue }: TitleScreenProps) {
             type="button"
             autoFocus={!hasSave}
             onClick={onNew}
-            className={`w-60 rounded-xl py-3.5 text-lg font-black transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber focus-visible:ring-offset-2 focus-visible:ring-offset-ink ${
-            hasSave ? 'border border-cream/30 text-cream hover:bg-cream/10' : 'bg-amber text-ink hover:bg-cream'}`
+            className={`btn-wood w-60 rounded-lg py-3 text-lg font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-amber ${
+            hasSave ? 'bg-wood text-cream hover:bg-wood-hi' : 'bg-amber text-parch-ink hover:bg-[#ffc76a]'}`
             }>
-            
             {hasSave ? '开始新的农场' : '开始经营'}
           </button>
-          <p className="mt-2 w-60 text-xs leading-relaxed text-cream/60">WASD 移动 · 空格/左键 使用 · E/右键 互动 · Tab 背包 · V 居民 · G 日志</p>
+          <p className="mt-2 hidden w-60 text-xs leading-relaxed text-cream/60 [@media(pointer:fine)]:block">WASD 移动 · 走向门口进屋 · 空格/左键 使用 · E/右键 互动 · Tab 背包 · V 居民 · G 日志</p>
+          <p className="mt-1 w-60 text-xs leading-relaxed text-cream/60 [@media(pointer:fine)]:hidden">点击地面自动寻路 · 左侧摇杆移动 · 右侧按钮使用工具与互动</p>
         </div>
       </motion.div>
     </motion.div>);

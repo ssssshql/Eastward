@@ -13,7 +13,9 @@ export function buildJar(): HTMLCanvasElement {
   p.box(5, 5, 6, 3, glaze);
   p.box(4, 3, 8, 2, wood);
   p.rect(4, 13, 12, 1, glaze[1]);
-  p.outline(0.65);
+  p.set(5, 11, glaze[5]);
+  p.set(5, 12, glaze[4]);
+  p.outline(0.78);
   return p.canvas();
 }
 
@@ -29,7 +31,7 @@ export function buildLadder(up: boolean): HTMLCanvasElement {
     p.set(11, y, wood[1]);
     if (y % 4 === 1) for (let x = 5; x < 11; x++) p.set(x, y, wood[2]);
   }
-  p.outline(0.6);
+  p.outline(0.7);
   return p.canvas();
 }
 
@@ -41,7 +43,7 @@ export function buildBrazier(): HTMLCanvasElement {
   p.ball(7, 10, 5.5, 2.6, iron, 0.2);
   const ember: RGB[] = [[255, 120, 40], [255, 160, 60], [255, 200, 90], [255, 230, 150], [255, 250, 210]];
   p.ball(7, 9, 4, 1.2, ember, 0.3);
-  p.outline(0.6);
+  p.outline(0.7);
   return p.canvas();
 }
 
@@ -57,35 +59,40 @@ export function buildCrystal(variant: number): HTMLCanvasElement {
     }
   }
   p.ball(9, 19.5, 6, 1.6, ramp('#3a3048', 4), 0);
-  p.outline(0.55);
+  p.outline(0.6);
   return p.canvas();
 }
 
 export function buildBoard(season: Season): HTMLCanvasElement {
-  const p = new Px(32, 30);
+  const p = new Px(32, 32);
   const wood = ramp('#8a5a3a', 6, 0.6, 0.42);
+  const roof = ramp('#a8443a', 5, 0.6, 0.42);
   const paper: RGB[] = [[244, 236, 214], [255, 214, 140], [190, 230, 240]];
-  for (const x of [4, 26]) for (let y = 8; y <= 28; y++) p.box(x, y, 2, 1, wood);
-  for (let y = 4; y <= 20; y++) {
+  for (const x of [4, 26]) for (let y = 6; y <= 30; y++) p.box(x, y, 2, 1, wood);
+  for (let y = 7; y <= 22; y++) {
     for (let x = 2; x <= 29; x++) {
-      let li = 2.6 + ((y - 4) % 4 === 3 ? -1 : 0) + (hash2(x, y, 3) - 0.5) * 0.4;
-      if (y === 4) li = 4.5;
-      if (y === 20) li = 0.6;
+      let li = 2.6 + ((y - 7) % 4 === 3 ? -1 : 0) + (hash2(x, y, 3) - 0.5) * 0.4;
+      if (y === 7) li = 4.5;
+      if (y === 22) li = 0.6;
       p.set(x, y, pick(wood, li));
     }
   }
-  const notes: [number, number, number][] = [[5, 7, 0], [12, 6, 1], [19, 8, 2], [9, 13, 1], [21, 13, 0]];
+  const notes: [number, number, number][] = [[5, 9, 0], [12, 9, 1], [19, 10, 2], [9, 15, 1], [21, 15, 0]];
   for (const [x, y, c] of notes) {
     p.rect(x, y, 6, 6, paper[c]);
     p.rect(x + 1, y + 2, 4, 1, [120, 100, 90]);
     p.rect(x + 1, y + 4, 3, 1, [120, 100, 90]);
     p.set(x + 3, y, [220, 60, 50]);
   }
-  for (let x = 1; x <= 30; x++) {
-    p.set(x, 2, season === 'winter' ? SNOW[3] : wood[1]);
-    p.set(x, 3, wood[4]);
+  // Little pent roof over the board.
+  for (let y = 1; y <= 6; y++) {
+    for (let x = 1 - Math.floor(y / 3); x <= 30 + Math.floor(y / 3); x++) {
+      let c = pick(roof, y === 6 ? 0.8 : 3.4 - y * 0.35 - (x % 5 === 0 ? 0.8 : 0));
+      if (season === 'winter' && y <= 3) c = SNOW[3 - Math.min(2, y - 1)];
+      p.set(x, y, c);
+    }
   }
-  p.outline(0.6);
+  p.outline(0.75);
   return p.canvas();
 }
 
@@ -102,11 +109,13 @@ export function buildFountain(season: Season): HTMLCanvasElement {
       if (d > 0.8) {
         let li = 2.6 - dy * 1.6 + (hash2(Math.floor(Math.atan2(dy, dx) * 8), 1, 4) - 0.5) * 0.8;
         if (d > 0.96) li -= 1.2;
+        if (d < 0.83) li = 4.6;
         p.set(x, y, pick(stone, li));
       } else {
         const wave = Math.sin(x * 0.5 + y * 0.3) + Math.sin(x * 0.2 - y * 0.7);
         let li = 2.2 + dy * 0.8 + wave * 0.4;
         if (dy < -0.55) li -= 1.2;
+        if (wave > 1.5) li = 5;
         p.set(x, y, pick(water, li));
       }
     }
@@ -115,7 +124,7 @@ export function buildFountain(season: Season): HTMLCanvasElement {
   p.ball(32, 12, 10, 4, stone, 0.2);
   p.ball(32, 11, 7.5, 2.4, water, 0.3);
   p.ball(32, 4, 2.4, 3.5, stone, 0.3);
-  p.outline(0.6);
+  p.outline(0.75);
   return p.canvas();
 }
 
@@ -154,6 +163,6 @@ export function buildCave(): HTMLCanvasElement {
     p.set(x, 27, wood[1]);
   }
   p.box(46, 28, 4, 5, ramp('#ffcf6a', 4, 0.3, 0.5));
-  p.outline(0.6);
+  p.outline(0.75);
   return p.canvas();
 }

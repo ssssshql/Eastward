@@ -1,17 +1,18 @@
 export type Dir = 'down' | 'up' | 'left' | 'right';
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 export type Weather = 'clear' | 'rain' | 'snow';
-export type MapId = 'farm' | 'town' | 'mine';
-export type Ground = 'grass' | 'path' | 'sand' | 'water' | 'dock' | 'cobble' | 'cave' | 'wall';
+export type MapId = 'farm' | 'town' | 'mine' | 'interior';
+export type Ground = 'grass' | 'path' | 'sand' | 'water' | 'dock' | 'cobble' | 'cave' | 'wall' | 'floor';
 export type CropShape = 'root' | 'berry' | 'big' | 'flower' | 'glow';
 export type ItemKind = 'tool' | 'seed' | 'produce' | 'resource' | 'fish' | 'placeable' | 'food' | 'artisan' | 'animal';
 export type ObjKind = 'tree' | 'stump' | 'rock' | 'weed' | 'bush' | 'sprinkler' | 'lamp' | 'jar' | 'ladder' | 'torch' | 'crystal';
-export type StructureKind = 'house' | 'bin' | 'coop' | 'store' | 'smith' | 'tavern' | 'cottage' | 'board' | 'fountain' | 'cave' | 'cart';
+export type StructureKind = 'house' | 'bin' | 'coop' | 'store' | 'smith' | 'tavern' | 'cottage' | 'board' | 'fountain' | 'cave' | 'cart' | 'furniture';
 export type Mode = 'title' | 'play' | 'store' | 'smith' | 'tavern' | 'board' | 'inventory' | 'journal' | 'villagers' | 'fishing' | 'sleep' | 'summary' | 'dialog';
 export type PanelMode = 'inventory' | 'journal' | 'villagers';
 export type UpgradeId = 'hoe' | 'can' | 'axe' | 'pickaxe' | 'sword';
 export type AnimalKind = 'chicken' | 'cow';
 export type MonsterKind = 'slime' | 'bat';
+export type FurnitureUse = 'sleep' | 'store' | 'smith' | 'tavern' | 'coop' | 'note';
 
 export interface CropDef {
   id: string;
@@ -138,6 +139,13 @@ export interface Structure {
   w: number;
   h: number;
   variant?: number;
+  /** Interior furniture only */
+  prop?: string;
+  use?: FurnitureUse;
+  label?: string;
+  note?: string;
+  npc?: string;
+  walk?: boolean;
 }
 
 export interface Warp {
@@ -149,6 +157,7 @@ export interface Warp {
   tx: number;
   ty: number;
   dir: Dir;
+  key?: string;
 }
 
 export interface Decor {
@@ -158,10 +167,50 @@ export interface Decor {
   variant: number;
 }
 
+export interface Rug {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  color: string;
+  border: string;
+}
+
+export interface InteriorStyle {
+  wall: string;
+  trim: string;
+  floor: string;
+  floorKind: 'plank' | 'stone' | 'hay';
+  pattern: 'stripe' | 'diamond' | 'plank' | 'stone' | 'brick';
+}
+
+export interface Placement {
+  prop: string;
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  use?: FurnitureUse;
+  label?: string;
+  note?: string;
+  npc?: string;
+}
+
+export interface RoomSpec {
+  name: string;
+  w: number;
+  h: number;
+  style: InteriorStyle;
+  items: Placement[];
+  rugs: Rug[];
+  wake?: [number, number];
+}
+
 export interface World {
   id: MapId;
   name: string;
   dark: boolean;
+  indoor: boolean;
   floor: number;
   w: number;
   h: number;
@@ -175,6 +224,10 @@ export interface World {
   warps: Warp[];
   blocked: Int16Array;
   decor: Decor[];
+  rugs: Rug[];
+  style?: InteriorStyle;
+  spawn?: [number, number];
+  wake?: [number, number];
 }
 
 export interface PlayerAction {

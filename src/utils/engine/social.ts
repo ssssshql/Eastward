@@ -41,17 +41,16 @@ function heartRewards(g: FarmGame, st: NpcState): string {
 export function talkTo(g: FarmGame, st: NpcState): void {
   const def = npcDef(st.id);
   face(g, st);
-  let prefix = '';
   if (!st.talked) {
     st.talked = true;
     st.friendship = Math.min(MAX_HEARTS * HEART, st.friendship + 20);
-  } else prefix = '';
+  }
   const pool = heartsOf(st.friendship) >= 3 ? [...def.lines, ...def.closeLines] : def.lines;
   g.talkSeq++;
   const seasonal = g.weather === 'rain' ? '外面雨好大，你也小心别着凉。' : g.weather === 'snow' ? '下雪了，整个镇子都安静下来了。' : null;
   const idx = (g.day * 3 + g.talkSeq + st.id.length) % (pool.length + (seasonal ? 1 : 0));
   const line = seasonal && idx === pool.length ? seasonal : pool[idx % pool.length];
-  openDialog(g, st, prefix + line + heartRewards(g, st));
+  openDialog(g, st, line + heartRewards(g, st));
 }
 
 export function giveGift(g: FarmGame, st: NpcState, slot: number): void {

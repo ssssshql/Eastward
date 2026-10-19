@@ -125,7 +125,7 @@ export function buildCropFrames(def: CropDef): HTMLCanvasElement[] {
   for (let s = 0; s < 5; s++) {
     const p = new Px(22, 34);
     drawStage(p, def.shape, s, L, F, A);
-    p.outline(0.55);
+    p.outline(0.7);
     frames.push(p.canvas());
   }
   return frames;

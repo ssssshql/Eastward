@@ -4,10 +4,11 @@ import { npcs } from '../../data/npcs';
 import { buildGround, buildSoil, buildWaterFrames } from './terrain';
 import { buildBush, buildFlower, buildRock, buildStump, buildTree, buildTuft, buildWeed, TreeSprite } from './nature';
 import { buildCropFrames } from './crops';
-import { buildCharacterFrames, PLAYER_PALETTE } from './character';
-import { buildBin, buildCart, buildingForKind, buildLamp, BuildingSprite } from './buildings';
-import { buildBat, buildChicken, buildCow, buildSlime, CreatureFrames } from './creatures';
+import { BARKEEP_PALETTE, buildCharacterFrames, PLAYER_PALETTE, WANDERER_PALETTE } from './character';
+import { buildBin, buildCart, buildingForKind, buildLamp, BuildingSprite, PAD } from './buildings';
+import { buildBat, buildCat, buildChicken, buildCow, buildDuck, buildSlime, CreatureFrames } from './creatures';
 import { buildBoard, buildBrazier, buildCave, buildCrystal, buildFountain, buildJar, buildLadder } from './props';
+import { buildFurnitureSet, FurnitureSprite } from './furniture';
 
 export interface LightSprites {
   warm: HTMLCanvasElement;
@@ -56,6 +57,9 @@ export interface Shared {
   bat: HTMLCanvasElement[];
   chicken: CreatureFrames;
   cow: CreatureFrames;
+  cat: CreatureFrames;
+  duck: CreatureFrames;
+  furniture: Record<string, FurnitureSprite>;
 }
 
 let shared: Shared | null = null;
@@ -86,6 +90,8 @@ export function getShared(): Shared {
     for (const c of crops) cropFrames[c.id] = buildCropFrames(c);
     const npcFrames: Record<string, Record<Dir, HTMLCanvasElement[]>> = {};
     for (const n of npcs) npcFrames[n.id] = buildCharacterFrames(n.palette);
+    npcFrames.barkeep = buildCharacterFrames(BARKEEP_PALETTE);
+    npcFrames.wanderer = buildCharacterFrames(WANDERER_PALETTE);
     const soil = buildSoil();
     shared = {
       crops: cropFrames,
@@ -105,7 +111,10 @@ export function getShared(): Shared {
       slimeDeep: buildSlime('#4a8aff'),
       bat: buildBat(),
       chicken: buildChicken(),
-      cow: buildCow()
+      cow: buildCow(),
+      cat: buildCat(),
+      duck: buildDuck(),
+      furniture: buildFurnitureSet()
     };
   }
   return shared;
@@ -116,12 +125,12 @@ function structureSprites(season: Season): Record<string, StructureSprite> {
   for (const kind of ['house', 'coop', 'store', 'smith', 'tavern']) {
     const d = buildingForKind(kind, 0, season, false);
     const n = buildingForKind(kind, 0, season, true);
-    out[kind] = { day: d.canvas, night: n.canvas, meta: d, offX: 0 };
+    out[kind] = { day: d.canvas, night: n.canvas, meta: d, offX: -PAD };
   }
   for (let v = 0; v < 4; v++) {
     const d = buildingForKind('cottage', v, season, false);
     const n = buildingForKind('cottage', v, season, true);
-    out[`cottage${v}`] = { day: d.canvas, night: n.canvas, meta: d, offX: 0 };
+    out[`cottage${v}`] = { day: d.canvas, night: n.canvas, meta: d, offX: -PAD };
   }
   const cartD = buildCart(season, false);
   out.cart = { day: cartD, night: buildCart(season, true), meta: null, offX: -1 };
@@ -161,7 +170,7 @@ export function getBank(season: Season, seed: number): SpriteBank {
 
 export function getGround(world: World, season: Season): HTMLCanvasElement {
   const g = grounds.get(world);
-  if (g && g.season === season) return g.canvas;
+  if (g && (g.season === season || world.indoor)) return g.canvas;
   const canvas = buildGround(world, season);
   grounds.set(world, { season, canvas });
   return canvas;

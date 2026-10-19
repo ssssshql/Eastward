@@ -34,7 +34,6 @@ export function GoalTracker({ stats, goalsDone, requests, onInventory, onJournal
             </span>
           </div>
         </> :
-
       <p className="text-base font-black">所有目标都完成了，雾谷因你而繁荣。</p>
       }
       {requests > 0 && <p className="mt-2 text-xs text-mist">灯湖镇委托板上有 {requests} 个委托</p>}

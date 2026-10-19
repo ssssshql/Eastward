@@ -14,7 +14,6 @@ export function MapBanner({ banner }: {banner: Banner | null;}) {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -6 }}
           transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}>
-          
             <div className="h-px w-40 bg-cream/40" />
             <h2 className="title-shadow mt-3 text-5xl font-black tracking-tight text-cream">{banner.title}</h2>
             <p className="title-shadow mt-2 text-sm tracking-[0.2em] text-cream/80">{banner.sub}</p>

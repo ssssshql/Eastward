@@ -7,8 +7,8 @@ interface CoinsProps {
 
 export function Coins({ value, className = '' }: CoinsProps) {
   return (
-    <span className={`inline-flex items-center gap-1.5 tabular-nums ${className}`}>
-      <span className="inline-block h-2.5 w-2.5 rounded-full bg-amber ring-2 ring-amber-deep/60" aria-hidden="true" />
+    <span className={`inline-flex items-center gap-1.5 font-pixel tabular-nums ${className}`}>
+      <span className="inline-block h-3 w-3 rounded-full border-2 border-[#8a4a10] bg-[#ffd04a] shadow-[inset_-1px_-1px_0_#e08a1e]" aria-hidden="true" />
       {value.toLocaleString('zh-CN')}
     </span>);
 

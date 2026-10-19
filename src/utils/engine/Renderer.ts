@@ -3,7 +3,7 @@ import type { Weather, World } from '../../types/game';
 import { getBank, getGround, SpriteBank } from '../sprites/bank';
 import { drawLights, drawWorld, sunAt } from './render';
 import { PostFX } from './postfx';
-import { ambientAt, V3 } from './lighting';
+import { ambientAt, indoorAmbient, V3 } from './lighting';
 
 interface Flake {
   x: number;
@@ -27,7 +27,8 @@ export class Renderer {
   private lctx: CanvasRenderingContext2D;
   private shadow = document.createElement('canvas');
   private shctx: CanvasRenderingContext2D;
-  private bank: SpriteBank | null = null;
+  private refl = document.createElement('canvas');
+  private rctx: CanvasRenderingContext2D;
   private patternBank: SpriteBank | null = null;
   private patterns: CanvasPattern[] = [];
   private flakes: Flake[] = [];
@@ -44,10 +45,12 @@ export class Renderer {
     const s = this.scene.getContext('2d');
     const l = this.light.getContext('2d');
     const sh = this.shadow.getContext('2d');
-    if (!s || !l || !sh) throw new Error('2d context unavailable');
+    const r = this.refl.getContext('2d');
+    if (!s || !l || !sh || !r) throw new Error('2d context unavailable');
     this.sctx = s;
     this.lctx = l;
     this.shctx = sh;
+    this.rctx = r;
   }
 
   resize(w: number, h: number): void {
@@ -57,12 +60,13 @@ export class Renderer {
     this.display.height = h;
     this.viewW = w / this.scale;
     this.viewH = h / this.scale;
-    for (const c of [this.scene, this.light, this.shadow]) {
+    for (const c of [this.scene, this.light, this.shadow, this.refl]) {
       c.width = Math.ceil(this.viewW) + 2;
       c.height = Math.ceil(this.viewH) + 2;
     }
     this.sctx.imageSmoothingEnabled = false;
     this.shctx.imageSmoothingEnabled = false;
+    this.rctx.imageSmoothingEnabled = false;
   }
 
   private ensureBank(g: FarmGame): SpriteBank {
@@ -71,12 +75,11 @@ export class Renderer {
       this.patternBank = bank;
       this.patterns = bank.water.map((c) => this.sctx.createPattern(c, 'repeat')).filter((p): p is CanvasPattern => !!p);
     }
-    this.bank = bank;
     return bank;
   }
 
   private drawWeather(dt: number, weather: Weather, world: World): void {
-    if (weather === 'clear' || world.dark) return;
+    if (weather === 'clear' || world.dark || world.indoor) return;
     const W = this.scene.width;
     const H = this.scene.height;
     const want = weather === 'rain' ? 190 : 130;
@@ -127,13 +130,14 @@ export class Renderer {
     const fy = Math.floor(g.camY);
     const view = { x: fx, y: fy, w: this.scene.width, h: this.scene.height };
     const dark = g.world.dark;
+    const indoor = g.world.indoor;
     const minutes = g.displayTime();
     const L = ambientAt(minutes, g.weather);
-    const night = dark ? 1 : L.night;
-    const ambient: V3 = dark ? MINE_AMBIENT : L.ambient;
+    const night = dark ? 1 : indoor ? 0.6 + L.night * 0.4 : L.night;
+    const ambient: V3 = dark ? MINE_AMBIENT : indoor ? indoorAmbient(L.night) : L.ambient;
     const weather = g.mode === 'title' ? 'clear' : g.weather;
-    const sun = sunAt(minutes, L.night, weather !== 'clear', dark);
-    const lights = drawWorld(this.sctx, this.shctx, g, bank, ground, this.patterns, view, night, sun);
+    const sun = sunAt(minutes, L.night, weather !== 'clear', dark || indoor);
+    const lights = drawWorld(this.sctx, this.shctx, this.rctx, g, bank, ground, this.patterns, { view, night, dayNight: dark ? 1 : L.night, sun });
     this.drawWeather(dt, weather, g.world);
     drawLights(this.lctx, bank, view, lights);
 
@@ -151,12 +155,12 @@ export class Renderer {
         sunY: sun.dy,
         time: g.elapsed,
         night,
-        rain: weather === 'rain' ? 1 : 0,
+        rain: weather === 'rain' && !indoor ? 1 : 0,
         golden: Math.min(1, golden),
-        outdoor: dark ? 0 : 1,
+        outdoor: dark || indoor ? 0 : 1,
         hurt: Math.min(1, g.hurtT * 2.2),
         fade: g.fade,
-        dof: this.options.dof ? 1 : 0,
+        dof: this.options.dof && !indoor ? 1 : 0,
         ambient
       });
     } else if (this.ctx2d) {

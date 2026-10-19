@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
+import { RotateHint } from './RotateHint';
+import { enterImmersive, ensureMobileMeta, usePortrait } from '../hooks/useFullscreen';
 import { useGame } from '../hooks/useGame';
 import { Hud } from './hud/Hud';
 import { MapBanner } from './hud/MapBanner';
@@ -15,6 +17,8 @@ import { SleepDialog } from './panels/SleepDialog';
 import { DaySummary } from './panels/DaySummary';
 import { FishingMinigame } from './FishingMinigame';
 import { DialogBox } from './DialogBox';
+import { TouchControls } from './TouchControls';
+import { useIsTouch } from '../hooks/useIsTouch';
 
 interface GameScreenProps {
   depthOfField: boolean;
@@ -23,15 +27,26 @@ interface GameScreenProps {
 export function GameScreen({ depthOfField }: GameScreenProps) {
   const { canvasRef, snap, actions, error } = useGame({ depthOfField });
   const mode = snap?.mode;
+  const touch = useIsTouch();
+  const portrait = usePortrait();
+  const [hintDismissed, setHintDismissed] = useState(false);
+  useEffect(() => ensureMobileMeta(), []);
+  const immersive = (fn: () => void) => () => {
+    if (touch) void enterImmersive();
+    fn();
+  };
   return (
-    <main className="relative h-screen w-full select-none overflow-hidden bg-ink font-sans text-cream">
+    <main className="game-root relative h-[100dvh] w-full select-none overflow-hidden bg-ink font-sans text-cream">
       <canvas ref={canvasRef} className="pixelated absolute inset-0 block h-full w-full" aria-label="雾谷农场游戏画面" />
       {error && <div className="absolute inset-0 flex items-center justify-center p-8 text-center text-cream">{error}</div>}
       {!snap && !error && <div className="absolute inset-0 flex items-center justify-center text-xl font-black text-cream-dim">雾气正在散去……</div>}
-      {snap && mode !== 'title' && mode !== 'summary' && <Hud snap={snap} actions={actions} />}
+      {snap && mode !== 'title' && mode !== 'summary' && <Hud snap={snap} actions={actions} touch={touch} />}
+      {snap && touch && mode === 'play' &&
+      <TouchControls prompt={snap.prompt} onMove={actions.touchMove} onUse={actions.touchUse} onInteract={actions.touchInteract} />
+      }
       {snap && mode !== 'title' && mode !== 'summary' && <MapBanner banner={snap.banner} />}
       <AnimatePresence>
-        {snap && mode === 'title' && <TitleScreen key="title" hasSave={snap.hasSave} onNew={actions.newGame} onContinue={actions.continueGame} />}
+        {snap && mode === 'title' && <TitleScreen key="title" hasSave={snap.hasSave} onNew={immersive(actions.newGame)} onContinue={immersive(actions.continueGame)} />}
         {snap && mode === 'store' && <StorePanel key="store" snap={snap} onBuy={actions.buy} onBuyAnimal={actions.buyAnimal} onClose={actions.closePanel} />}
         {snap && mode === 'smith' && <SmithPanel key="smith" snap={snap} onSmelt={actions.smelt} onUpgrade={actions.upgrade} onClose={actions.closePanel} />}
         {snap && mode === 'tavern' && <TavernPanel key="tavern" money={snap.money} onBuy={actions.buy} onClose={actions.closePanel} />}
@@ -45,6 +60,7 @@ export function GameScreen({ depthOfField }: GameScreenProps) {
         {snap && mode === 'dialog' && snap.dialog && <DialogBox key="dialog" dialog={snap.dialog} onClose={actions.closePanel} />}
         {snap && mode === 'fishing' && snap.fishingFish && <FishingMinigame key="fish" fishId={snap.fishingFish} onFinish={actions.finishFishing} />}
         {snap && mode === 'summary' && snap.summary && <DaySummary key="summary" summary={snap.summary} money={snap.money} onContinue={actions.continueDay} />}
+        {touch && portrait && !hintDismissed && <RotateHint key="rotate" onDismiss={() => setHintDismissed(true)} />}
       </AnimatePresence>
     </main>);
 

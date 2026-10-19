@@ -5,6 +5,8 @@ import type { Dir, NpcDef } from '../../types/game';
 export type CharPalette = NpcDef['palette'];
 
 export const PLAYER_PALETTE: CharPalette = { skin: '#f1c09a', hair: '#8a4a2e', shirt: '#f2ead8', over: '#2f6fae', boot: '#4c3024', scarf: '#ff5a3c', style: 'short' };
+export const WANDERER_PALETTE: CharPalette = { skin: '#d8a07a', hair: '#6a5e58', shirt: '#9a8a62', over: '#5a4a3a', boot: '#3a2a22', scarf: '#7a8a5a', style: 'long' };
+export const BARKEEP_PALETTE: CharPalette = { skin: '#e8b48c', hair: '#5a3424', shirt: '#f2e6cc', over: '#7a2a34', boot: '#2a2228', scarf: '#e0a050', style: 'short' };
 
 interface Ramps {
   SKIN: RGB[];
@@ -68,11 +70,14 @@ function front(p: Px, f: number, back: boolean, R: Ramps): void {
     p.ball(10, 6.4 + by, 5.2, 4.3, HAIR, 0.25, (x, y) => y < 7 + by || (x < 7 || x > 12) && y < 10 + by || y < 8 + by && (x < 8 || x > 11));
     p.rect(8, 9 + by, 1, 2, EYE);
     p.rect(11, 9 + by, 1, 2, EYE);
-    p.set(8, 9 + by, [255, 255, 255], 0.35);
-    p.set(11, 9 + by, [255, 255, 255], 0.35);
+    p.set(8, 9 + by, [255, 255, 255], 0.45);
+    p.set(11, 9 + by, [255, 255, 255], 0.45);
     p.set(7, 11 + by, BLUSH, 0.6);
     p.set(12, 11 + by, BLUSH, 0.6);
   }
+  // Crown highlight that reads as a crisp rim light.
+  p.set(8, 3 + by, HAIR[4]);
+  p.set(9, 3 + by, HAIR[4]);
   if (R.style === 'bun') p.ball(10, 2.4 + by, 2.4, 2, HAIR, 0.3);
 }
 
@@ -106,6 +111,7 @@ function side(p: Px, f: number, R: Ramps): void {
   p.rect(13, 9 + by, 1, 2, EYE);
   p.set(13, 11 + by, BLUSH, 0.6);
   p.set(10, 9 + by, SKIN[1]);
+  p.set(9, 3 + by, HAIR[4]);
   if (R.style === 'bun') p.ball(8, 3 + by, 2.4, 2, HAIR, 0.3);
 }
 
@@ -122,7 +128,7 @@ export function buildCharacterFrames(pal: CharPalette): Record<Dir, HTMLCanvasEl
   const make = (fn: (p: Px) => void): Px => {
     const p = new Px(20, 28);
     fn(p);
-    p.outline(0.7);
+    p.outline(0.86);
     return p;
   };
   const frames = [0, 1, 2];

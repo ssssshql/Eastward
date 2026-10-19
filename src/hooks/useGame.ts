@@ -4,6 +4,7 @@ import { FarmGame, InputState } from '../utils/engine/FarmGame';
 import { Renderer } from '../utils/engine/Renderer';
 import { buy, buyAnimal, craft, smelt, upgrade } from '../utils/engine/economy';
 import { deliverRequest } from '../utils/engine/social';
+import { REACH } from '../utils/engine/constants';
 
 export interface GameActions {
   selectSlot: (i: number) => void;
@@ -22,10 +23,16 @@ export interface GameActions {
   finishFishing: (success: boolean) => void;
   newGame: () => void;
   continueGame: () => void;
+  touchMove: (d: TouchDirs) => void;
+  touchUse: (down: boolean) => void;
+  touchInteract: () => void;
 }
 
-interface UseGameOptions {
-  depthOfField: boolean;
+export interface TouchDirs {
+  up: boolean;
+  down: boolean;
+  left: boolean;
+  right: boolean;
 }
 
 const HOTKEYS = '1234567890-=';
@@ -34,12 +41,13 @@ function createInput(): InputState {
   return { up: false, down: false, left: false, right: false, useHeld: false, usePressed: false, interactPressed: false, mouseX: 0, mouseY: 0, mouseInside: false };
 }
 
-export function useGame({ depthOfField }: UseGameOptions) {
+export function useGame({ depthOfField }: {depthOfField: boolean;}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<FarmGame | null>(null);
   const rendererRef = useRef<Renderer | null>(null);
   const [snap, setSnap] = useState<UiSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<InputState>(createInput());
 
   useEffect(() => {
     if (rendererRef.current) rendererRef.current.options.dof = depthOfField;
@@ -59,7 +67,8 @@ export function useGame({ depthOfField }: UseGameOptions) {
     renderer.options.dof = depthOfField;
     rendererRef.current = renderer;
     gameRef.current = game;
-    const input = createInput();
+    const input = inputRef.current;
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
 
     const resize = () => {
       const r = canvas.getBoundingClientRect();
@@ -112,6 +121,7 @@ export function useGame({ depthOfField }: UseGameOptions) {
       if (k === ' ' || k === 'j') input.useHeld = false;
     };
     const onMove = (e: MouseEvent) => {
+      if (coarse) return;
       input.mouseX = e.offsetX;
       input.mouseY = e.offsetY;
       input.mouseInside = true;
@@ -125,11 +135,38 @@ export function useGame({ depthOfField }: UseGameOptions) {
         game.closePanel();
         return;
       }
-      if (game.mode !== 'play') return;
+      if (game.mode !== 'play' || coarse) return;
+      const wx = game.camX + e.offsetX / game.viewScale;
+      const wy = game.camY + e.offsetY / game.viewScale;
+      const tx = Math.floor(wx / 16) * 16 + 8;
+      const ty = Math.floor(wy / 16) * 16 + 8;
+      const inReach = Math.hypot(tx - game.player.x, ty - (game.player.y - 6)) <= REACH;
+      if (!inReach) {
+        game.tapAt(e.offsetX, e.offsetY);
+        return;
+      }
+      game.cancelPath();
       if (e.button === 0) {
         input.usePressed = true;
         input.useHeld = true;
       } else if (e.button === 2) input.interactPressed = true;
+    };
+    let tap: {id: number;x: number;y: number;t: number;} | null = null;
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') return;
+      tap = { id: e.pointerId, x: e.offsetX, y: e.offsetY, t: performance.now() };
+    };
+    const onPointerUp = (e: PointerEvent) => {
+      if (!tap || tap.id !== e.pointerId) return;
+      const moved = Math.hypot(e.offsetX - tap.x, e.offsetY - tap.y);
+      const quick = performance.now() - tap.t < 500;
+      tap = null;
+      if (moved > 14 || !quick) return;
+      if (game.mode === 'dialog') {
+        game.closePanel();
+        return;
+      }
+      game.tapAt(e.offsetX, e.offsetY);
     };
     const onUp = (e: MouseEvent) => {
       if (e.button === 0) input.useHeld = false;
@@ -149,6 +186,8 @@ export function useGame({ depthOfField }: UseGameOptions) {
     canvas.addEventListener('mousedown', onDown);
     canvas.addEventListener('wheel', onWheel, { passive: true });
     canvas.addEventListener('contextmenu', onCtx);
+    canvas.addEventListener('pointerdown', onPointerDown);
+    canvas.addEventListener('pointerup', onPointerUp);
 
     let raf = 0;
     let last = performance.now();
@@ -180,6 +219,8 @@ export function useGame({ depthOfField }: UseGameOptions) {
       canvas.removeEventListener('mousedown', onDown);
       canvas.removeEventListener('wheel', onWheel);
       canvas.removeEventListener('contextmenu', onCtx);
+      canvas.removeEventListener('pointerdown', onPointerDown);
+      canvas.removeEventListener('pointerup', onPointerUp);
       gameRef.current = null;
       rendererRef.current = null;
     };
@@ -210,7 +251,40 @@ export function useGame({ depthOfField }: UseGameOptions) {
       continueDay: () => call((g) => g.continueDay()),
       finishFishing: (s) => call((g) => g.finishFishing(s)),
       newGame: () => call((g) => g.startNewGame()),
-      continueGame: () => call((g) => g.continueSaved())
+      continueGame: () => call((g) => g.continueSaved()),
+      touchMove: (d) => {
+        const input = inputRef.current;
+        input.mouseInside = false;
+        input.up = d.up;
+        input.down = d.down;
+        input.left = d.left;
+        input.right = d.right;
+      },
+      touchUse: (down) => {
+        const g = gameRef.current;
+        const input = inputRef.current;
+        if (!g) return;
+        if (!down) {
+          input.useHeld = false;
+          return;
+        }
+        if (g.mode === 'dialog') {
+          g.closePanel();
+          return;
+        }
+        if (g.mode !== 'play') return;
+        input.usePressed = true;
+        input.useHeld = true;
+      },
+      touchInteract: () => {
+        const g = gameRef.current;
+        if (!g) return;
+        if (g.mode === 'dialog') {
+          g.closePanel();
+          return;
+        }
+        if (g.mode === 'play') inputRef.current.interactPressed = true;
+      }
     };
   }, []);
 

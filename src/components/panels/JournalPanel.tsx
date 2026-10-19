@@ -12,28 +12,30 @@ interface JournalPanelProps {
 
 const CONTROLS: [string, string][] = [
 ['WASD / 方向键', '移动'],
+['走向门口', '进入房屋'],
+['点击远处地面 / 物体', '自动寻路，走过去并互动'],
 ['空格 / 左键（可按住）', '使用手中的工具或物品'],
-['E / 右键', '互动 · 收获 · 出货 · 回家'],
+['E / 右键', '互动 · 收获 · 出货 · 上床'],
 ['1 – = / 滚轮', '切换快捷栏'],
 ['Tab', '背包与工作台'],
 ['V', '居民好感'],
 ['G', '日志'],
 ['Esc', '关闭面板']];
 
-
 const TIPS = [
+'有时会有一位叫阿墨的流浪汉在火堆旁歇脚。分他一份吃的，他会回赠些稀奇的东西。',
+'晴朗的夜里抬头看看，看见流星的第二天，农场里可能会多出一块发光的石头。',
+'每栋房子都能推门进去：杂货铺、铁匠铺、酒馆、居民的小屋都有自己的布置。',
+'回到小屋，在床边按 E 就能睡觉。',
 '沿着农场东边的小路过桥，就能到达灯湖镇。',
-'镇子北边的山洞是矿洞入口。打碎石头会找到通往下一层的梯子，每 5 层可以直接从那一层开始。',
-'矿石拿到铁匠铺熔炼成锭，再用锭升级工具。',
+'镇子北边的山洞是矿洞入口。每 5 层可以直接从那一层开始。',
 '腌制罐能把作物、鸡蛋、牛奶变成价值翻倍的加工品。',
-'每天摸一摸动物，第二天早上它们才会产出。',
 '凌晨两点前记得回家，在矿洞里倒下会丢失一些金币。'];
-
 
 export function JournalPanel({ stats, goalsDone, onClose }: JournalPanelProps) {
   return (
     <Modal title="农场日志" subtitle={`已完成 ${goalsDone.length} / ${goals.length} 个目标`} onClose={onClose} className="w-[760px]">
-      <div className="grid grid-cols-[1.3fr_1fr] gap-8 px-7 py-5">
+      <div className="grid gap-8 px-7 py-5 sm:grid-cols-[1.3fr_1fr]">
         <ol className="space-y-3">
           {goals.map((g) => {
             const done = goalsDone.includes(g.id);
@@ -59,7 +61,6 @@ export function JournalPanel({ stats, goalsDone, onClose }: JournalPanelProps) {
                   <p className="mt-0.5 text-[11px] text-cream-dim/80">{g.desc}</p>
                 </div>
               </li>);
-
           })}
         </ol>
         <div className="space-y-6">
@@ -77,11 +78,7 @@ export function JournalPanel({ stats, goalsDone, onClose }: JournalPanelProps) {
           <section>
             <h3 className="font-display text-lg">老农的叮嘱</h3>
             <ul className="mt-2 space-y-2 text-sm leading-relaxed text-cream-dim">
-              {TIPS.map((t) =>
-              <li key={t} className="border-l-2 border-amber/40 pl-3">
-                  {t}
-                </li>
-              )}
+              {TIPS.map((t) => <li key={t} className="border-l-2 border-amber/40 pl-3">{t}</li>)}
             </ul>
           </section>
         </div>

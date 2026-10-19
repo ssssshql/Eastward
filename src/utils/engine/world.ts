@@ -1,5 +1,7 @@
-import type { Ground, MapId, ObjKind, Structure, Weather, World, WorldObject } from '../../types/game';
-import { FARM_RECT } from './constants';
+import type { Ground, MapId, ObjKind, Structure, StructureKind, Weather, World, WorldObject } from '../../types/game';
+import { FARM_RECT, TILE } from './constants';
+
+export const ENTERABLE: StructureKind[] = ['house', 'coop', 'store', 'smith', 'tavern', 'cottage'];
 
 export function inBounds(w: World, x: number, y: number): boolean {
   return x >= 0 && y >= 0 && x < w.w && y < w.h;
@@ -19,6 +21,7 @@ export function emptyWorld(id: MapId, name: string, w: number, h: number, seed: 
     id,
     name,
     dark,
+    indoor: false,
     floor: 0,
     w,
     h,
@@ -31,7 +34,8 @@ export function emptyWorld(id: MapId, name: string, w: number, h: number, seed: 
     structures: [],
     warps: [],
     blocked: new Int16Array(n).fill(-1),
-    decor: []
+    decor: [],
+    rugs: []
   };
 }
 
@@ -52,6 +56,7 @@ export function isWater(w: World, x: number, y: number): boolean {
 export function rebuildBlocked(w: World): void {
   w.blocked.fill(-1);
   w.structures.forEach((s, si) => {
+    if (s.walk) return;
     for (let y = s.y; y < s.y + s.h; y++) for (let x = s.x; x < s.x + s.w; x++) if (inBounds(w, x, y)) w.blocked[y * w.w + x] = si;
   });
 }
@@ -68,6 +73,18 @@ export function warpAt(w: World, x: number, y: number) {
 
 export function nearStructure(w: World, x: number, y: number, pad: number): boolean {
   return w.structures.some((s) => x >= s.x - pad && x < s.x + s.w + pad && y >= s.y - pad && y < s.y + s.h + pad + 1);
+}
+
+export function interiorKey(s: Structure): string {
+  return s.kind === 'cottage' ? `cottage${s.variant ?? 0}` : s.kind;
+}
+
+/** The door sits centred on the front wall; these are the footprint tiles that count as "the door". */
+export function isDoorTile(s: Structure, x: number, y: number): boolean {
+  if (!ENTERABLE.includes(s.kind) || y !== s.y + s.h - 1) return false;
+  const half = s.w * TILE / 2;
+  const lx = x - s.x;
+  return lx >= Math.floor((half - 6) / TILE) && lx <= Math.floor((half + 5) / TILE);
 }
 
 export function scatterDecor(world: World, r: () => number, flowerChance: number, tuftChance = 0.5): void {

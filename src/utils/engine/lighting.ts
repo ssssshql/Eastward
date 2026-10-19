@@ -38,3 +38,9 @@ export function ambientAt(minutes: number, weather: Weather): {ambient: V3;night
   if (weather === 'snow') a = [a[0] * 0.95, a[1] * 0.97, a[2] * 1.03];
   return { ambient: a, night };
 }
+
+/** Indoor ambient: warm and cosy, still breathing with the daylight outside. */
+export function indoorAmbient(night: number): V3 {
+  const d = 1 - night;
+  return [0.5 + 0.38 * d, 0.44 + 0.38 * d, 0.5 + 0.28 * d];
+}

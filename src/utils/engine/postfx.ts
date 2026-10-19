@@ -52,61 +52,47 @@ void main() {
   vec2 texel = 1.0 / uSceneSize;
   vec3 col = litAt(tuv);
 
-  // Bloom + tilt-shift depth of field from a shared ring of taps.
   vec3 bloom = vec3(0.0);
   vec3 blur = vec3(0.0);
   for (int i = 0; i < 8; i++) {
     float an = float(i) * 0.785398 + 0.39;
     vec2 o = vec2(cos(an), sin(an)) * texel;
-    vec3 a = litAt(tuv + o * 1.8);
-    vec3 b = litAt(tuv + o * 4.5);
+    vec3 a = litAt(tuv + o * 2.0);
+    vec3 b = litAt(tuv + o * 5.0);
     blur += a * 0.6 + b * 0.4;
-    bloom += max(a - 0.7, 0.0) + max(b - 0.7, 0.0) * 0.7;
+    bloom += max(a - 0.72, 0.0) * 0.8 + max(b - 0.68, 0.0);
   }
   blur /= 8.0;
-  float dof = smoothstep(0.2, 0.5, abs(v.y - 0.52)) * uDof;
-  col = mix(col, blur, dof * 0.9);
-  col += bloom * 0.12;
+  float dof = smoothstep(0.3, 0.56, abs(v.y - 0.5)) * uDof;
+  col = mix(col, blur, dof * 0.5);
+  col += bloom * (0.1 + uNight * 0.08);
 
   vec2 world = uCam + px;
-  // Drifting cloud shadows.
-  float cl = fbm(world * 0.0065 + vec2(uTime * 0.018, uTime * 0.007));
-  float shade = smoothstep(0.48, 0.7, cl) * (1.0 - uNight) * (0.24 - uRain * 0.12) * uOutdoor;
+  float cl = fbm(world * 0.006 + vec2(uTime * 0.016, uTime * 0.006));
+  float shade = smoothstep(0.5, 0.72, cl) * (1.0 - uNight) * (0.2 - uRain * 0.1) * uOutdoor;
   col *= 1.0 - shade;
 
-  // Volumetric god rays, angled with the sun and stronger in golden hours.
   vec2 rp = uCam * 0.55 + px;
   vec2 dir = normalize(vec2(-uSun.x * 0.6 + 0.25, 1.0));
   float along = dot(rp, vec2(dir.y, -dir.x));
   float rays = pow(0.5 + 0.5 * sin(along * 0.05 + fbm(vec2(along * 0.01, uTime * 0.05)) * 6.0), 5.0);
   rays *= smoothstep(1.05, 0.0, v.y) * (0.55 + 0.45 * fbm(rp * 0.01 + uTime * 0.03));
-  float rayAmt = (0.07 + uGolden * 0.2) * (1.0 - uNight) * (1.0 - uRain * 0.8) * uOutdoor * (1.0 - shade * 3.0);
-  col += vec3(1.0, 0.78, 0.48) * rays * rayAmt;
+  float rayAmt = (0.05 + uGolden * 0.16) * (1.0 - uNight) * (1.0 - uRain * 0.8) * uOutdoor * (1.0 - shade * 3.0);
+  col += vec3(1.0, 0.8, 0.52) * rays * rayAmt;
 
-  // Atmospheric haze toward the top of the frame.
-  col = mix(col, vec3(0.62, 0.72, 0.86) * uAmbient, (1.0 - v.y) * 0.06 * uOutdoor * (1.0 - uNight));
+  col = mix(col, vec3(0.62, 0.72, 0.86) * uAmbient, (1.0 - v.y) * 0.05 * uOutdoor * (1.0 - uNight));
 
-  // Dark foreground foliage framing the top corners (parallax).
-  vec2 fg = uCam * 1.35 + px;
-  float leaf = fbm(fg * 0.035) + fbm(fg * 0.11) * 0.35;
-  float corner = max(1.0 - length((v - vec2(0.0, 0.0)) * vec2(2.2, 3.2)), 1.0 - length((v - vec2(1.0, 0.0)) * vec2(2.2, 3.2)));
-  float fgm = smoothstep(0.52, 0.58, corner * 0.9 + leaf * 0.55) * uOutdoor;
-  col = mix(col, vec3(0.02, 0.04, 0.05) + vec3(0.05, 0.08, 0.04) * leaf * (1.0 - uNight), fgm * 0.93);
-
-  // Filmic grade: exposure, ACES, teal-orange split tone, saturation.
-  col *= 1.12;
+  col *= 1.08;
   col = aces(col);
   float l = dot(col, vec3(0.299, 0.587, 0.114));
-  col += vec3(-0.035, 0.005, 0.045) * (1.0 - l) * (1.0 - l) + vec3(0.04, 0.012, -0.03) * l * l;
-  col = mix(vec3(l), col, 1.18 - uRain * 0.3);
-  col = mix(col, col * col * (3.0 - 2.0 * col), 0.35);
+  col += vec3(-0.03, 0.01, 0.05) * (1.0 - l) * (1.0 - l) + vec3(0.05, 0.02, -0.03) * l * l;
+  col = mix(vec3(l), col, 1.22 - uRain * 0.3);
+  col = mix(col, col * col * (3.0 - 2.0 * col), 0.25);
 
-  // Lens: chromatic fringe, vignette, grain, damage pulse, transition fade.
   vec2 d = v - 0.5;
   float r2 = dot(d, d);
-  col.r = mix(col.r, litAt(tuv + d * texel * 3.0).r * 0.9, r2 * 0.6);
-  col *= 1.0 - r2 * 0.95;
-  col += (h(gl_FragCoord.xy + fract(uTime) * 91.0) - 0.5) * 0.035;
+  col *= 1.0 - r2 * 0.55;
+  col += (h(gl_FragCoord.xy + fract(uTime) * 91.0) - 0.5) * 0.012;
   col = mix(col, vec3(0.55, 0.02, 0.04), uHurt * smoothstep(0.08, 0.5, r2) * 0.8);
   col *= 1.0 - uFade;
   gl_FragColor = vec4(col, 1.0);
@@ -154,7 +140,7 @@ function makeTex(gl: WebGLRenderingContext, filter: number): WebGLTexture {
   return t;
 }
 
-/** Cinematic post pass: lighting, bloom, tilt-shift, god rays, foliage framing, filmic grade. */
+/** Cinematic post pass: lighting, bloom, soft tilt-shift, god rays, Eastward-style warm/teal grade. */
 export class PostFX {
   private gl: WebGLRenderingContext;
   private tScene: WebGLTexture;

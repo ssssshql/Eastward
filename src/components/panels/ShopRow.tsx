@@ -10,14 +10,14 @@ interface ShopRowProps {
 }
 
 export const btnBase =
-'rounded-lg px-3 py-1.5 text-sm font-bold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber disabled:cursor-not-allowed disabled:opacity-35';
-export const btnPrimary = `${btnBase} bg-amber text-ink hover:bg-amber-deep`;
-export const btnGhost = `${btnBase} bg-cream/10 text-cream hover:bg-cream/20`;
+'btn-wood rounded-md px-3.5 pb-2 pt-1.5 text-sm font-black disabled:cursor-not-allowed';
+export const btnPrimary = `${btnBase} bg-amber text-parch-ink hover:bg-[#ffc76a]`;
+export const btnGhost = `${btnBase} bg-wood text-cream hover:bg-wood-hi`;
 
 export function ShopRow({ icon, title, meta, tag, children }: ShopRowProps) {
   return (
-    <li className="flex items-center gap-4 py-3">
-      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-ink-3/80">
+    <li className="flex items-center gap-3 py-3 sm:gap-4">
+      <div className="slot flex h-12 w-12 shrink-0 items-center justify-center">
         <ItemIcon id={icon} size={32} />
       </div>
       <div className="min-w-0 flex-1">
@@ -40,7 +40,7 @@ interface TabsProps<T extends string> {
 
 export function Tabs<T extends string>({ tabs, value, onChange }: TabsProps<T>) {
   return (
-    <div className="flex gap-1 px-7 pt-4" role="tablist">
+    <div className="flex gap-1.5 px-4 pt-4 sm:px-7" role="tablist">
       {tabs.map((t) =>
       <button
         key={t.id}
@@ -48,10 +48,9 @@ export function Tabs<T extends string>({ tabs, value, onChange }: TabsProps<T>) 
         type="button"
         aria-selected={value === t.id}
         onClick={() => onChange(t.id)}
-        className={`rounded-full px-4 py-1.5 text-sm font-bold transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber ${
-        value === t.id ? 'bg-cream text-ink' : 'text-cream-dim hover:bg-cream/10 hover:text-cream'}`
+        className={`btn-wood rounded-md px-4 py-1.5 text-sm font-black focus:outline-none focus-visible:ring-2 focus-visible:ring-amber ${
+        value === t.id ? 'bg-parch text-parch-ink' : 'bg-wood-lo text-cream-dim hover:text-cream'}`
         }>
-        
           {t.label}
         </button>
       )}
